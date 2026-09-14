@@ -1,0 +1,7 @@
+@php($role = 'seller')
+@php($title = 'Portal Seller')
+@php($heading = 'Kelola karya yang punya cerita.')
+@php($lead = 'Masuk untuk mengatur katalog, pesanan, dan toko berkelanjutanmu.')
+@php($action = route('seller.login.submit'))
+@php($registerUrl = route('seller.register.form'))
+@include('auth.role-login')

@@ -1,244 +1,122 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eco Craft</title>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin EcoCraft</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-
-        .sidebar {
-            width: 250px;
-            height: 100vh;
-            background: #0077B6;
-            color: white;
-            position: fixed;
-            padding: 20px;
-            transition: transform 0.3s ease-in-out;
-            z-index: 1001;
-        }
-
-        .sidebar a {
-            color: white;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            margin: 10px 0;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        .sidebar a i {
-            margin-right: 10px;
-            font-size: 18px;
-        }
-
-        .sidebar a:hover,
-        .sidebar .active {
-            background: #2196C5;
-        }
-
-        .logout-btn {
-            width: 100%;
-            text-align: left;
-            background: none;
-            border: none;
-            color: white;
-            padding: 12px 15px;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-
-        .logout-btn i {
-            margin-right: 10px;
-            font-size: 18px;
-        }
-
-        .logout-btn:hover {
-            background: #D9534F;
-        }
-
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-        }
-
-        .navbar-custom {
-            background: white;
-            box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.1);
-            padding: 10px 20px;
-            position: fixed;
-            width: calc(100% - 250px);
-            left: 250px;
-            top: 0;
-            z-index: 1002;
-            transition: left 0.3s ease-in-out;
-        }
-
-        .navbar-custom .navbar-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-        }
-
-        .content {
-            margin-left: 250px;
-            padding: 80px 20px 20px;
-            transition: margin-left 0.3s ease-in-out;
-        }
-
-        .hamburger {
-            display: none;
-            cursor: pointer;
-            background: none;
-            border: none;
-            font-size: 24px;
-        }
-
-        .profile-img {
-            width: 40px;
-            height: 40px;
-            object-fit: cover;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .dropdown-menu {
-            right: 0;
-            left: auto;
-        }
-
-        @media (max-width: 992px) {
-            .sidebar {
-                transform: translateX(-250px);
-            }
-
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
-            .navbar-custom {
-                width: 100%;
-                left: 0;
-            }
-
-            .content {
-                margin-left: 0;
-            }
-
-            .hamburger {
-                display: block;
-            }
-
-            .overlay.active {
-                display: block;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('assets/css/admin.css') }}">
 </head>
-
 <body>
-
-    <div class="overlay" id="overlay"></div>
-
-    <div class="sidebar" id="sidebar">
-        <h4>Eco Craft</h4>
-        <a href="/" class="active"><i class="fas fa-home"></i> Dashboard</a>
-        <a href="{{ route('admin.products.verify') }}"><i class="fas fa-user-check"></i> Verifikasi Product</a>
-        <a href="{{ route('admin.sellers.verify') }}"><i class="fas fa-user-check"></i> Verifikasi Seller</a>
-        <a href="#"><i class="fas fa-user-tie"></i> Staff</a>
-
-        <form action="{{ route('logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
-        </form>
-    </div>
-
-    <nav class="navbar navbar-custom">
-        <div class="navbar-content">
-            <button class="hamburger" id="sidebarToggle">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <span id="current-date" class="ms-3"></span>
-
-            <div class="dropdown">
-                <img
-                    src="{{ asset('storage/' . Auth::guard('admin')->user()->profile_image) }}"
-                    alt="Admin Profile"
-                    class="profile-img dropdown-toggle"
-                    id="profileDropdown"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                    role="button">
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                    <li class="dropdown-item-text fw-bold">
-                        {{ Auth::guard('admin')->user()->name }}
-                    </li>
-                    <li><a class="dropdown-item" href="{{ route('profile.edit') }}">Profile</a></li>
-                    <li>
-                        <form action="{{ route('logout') }}" method="POST">
-                            @csrf
-                            <button class="dropdown-item" type="submit">Logout</button>
-                        </form>
-                    </li>
-                </ul>
+<div class="admin-shell">
+    <header class="admin-nav-bar" id="adminNav">
+        <div class="admin-nav-inner">
+            <a class="brand" href="{{ route('admin.dashboard') }}">
+                <img src="{{ asset('assets/logo/ecocraft-logo.png') }}" alt="EcoCraft">
+                <span class="brand-role">Admin</span>
+            </a>
+            <nav class="admin-nav">
+                <a class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}"><i class="fas fa-grid-2"></i>Ringkasan</a>
+                <a class="{{ request()->routeIs('admin.products.*') ? 'active' : '' }}" href="{{ route('admin.products.verify') }}"><i class="fas fa-box-open"></i>Verifikasi Produk</a>
+                <a class="{{ request()->routeIs('admin.sellers.*') || request()->routeIs('admin.show') ? 'active' : '' }}" href="{{ route('admin.sellers.verify') }}"><i class="fas fa-store"></i>Verifikasi Seller</a>
+                <a class="{{ request()->routeIs('admin.customers') ? 'active' : '' }}" href="{{ route('admin.customers') }}"><i class="fas fa-user-group"></i>Customer</a>
+                @if(optional(Auth::guard('admin')->user())->isSuperAdmin())
+                    <a class="{{ request()->routeIs('admin.staff') ? 'active' : '' }}" href="{{ route('admin.staff') }}"><i class="fas fa-users"></i>Staff</a>
+                    <a class="{{ request()->routeIs('admin.impact.*') ? 'active' : '' }}" href="{{ route('admin.impact.index') }}"><i class="fas fa-leaf"></i>Faktor Dampak</a>
+                    <a class="{{ request()->routeIs('admin.vouchers.*') ? 'active' : '' }}" href="{{ route('admin.vouchers.index') }}"><i class="fas fa-ticket"></i>Voucher</a>
+                @endif
+            </nav>
+            <div class="nav-right">
+                <span class="today" id="current-date"></span>
+                <div class="profile-menu" tabindex="0">
+                    <button class="profile-trigger" type="button">
+                        <img class="profile-img" src="{{ Auth::guard('admin')->user()->profile_image ? asset('storage/' . Auth::guard('admin')->user()->profile_image) : asset('images/default-profile.png') }}" alt="Profil admin">
+                        <span class="profile-name">{{ Auth::guard('admin')->user()->name }}</span>
+                        <i class="fas fa-chevron-down" style="font-size:10px;color:var(--muted)"></i>
+                    </button>
+                    <div class="profile-dropdown">
+                        <div style="padding:8px 10px;font-weight:800;font-size:11px">{{ Auth::guard('admin')->user()->email }}</div>
+                        <div style="padding:0 10px 8px">
+                            @if(optional(Auth::guard('admin')->user())->isSuperAdmin())
+                                <span class="status approved"><i class="fas fa-crown"></i> Super Admin</span>
+                            @else
+                                <span class="status" style="background:var(--soft);color:var(--brand)"><i class="fas fa-user-shield"></i> Admin</span>
+                            @endif
+                        </div>
+                        <a href="{{ route('profile.edit') }}">Pengaturan profil</a>
+                        <form action="{{ route('logout') }}" method="POST">@csrf<button type="submit">Keluar dari akun</button></form>
+                    </div>
+                </div>
             </div>
-    </nav>
-
-    <div class="content">
-        {{-- Breadcrumb Section --}}
-        @if (View::hasSection('breadcrumb'))
-        <nav aria-label="breadcrumb" class="mb-3">
-            <ol class="breadcrumb">
-                @yield('breadcrumb')
-            </ol>
-        </nav>
+            <button class="mobile-toggle" id="navToggle" type="button" aria-label="Buka menu"><i class="fas fa-bars"></i></button>
+        </div>
+    </header>
+    <main class="content">
+        @if(View::hasSection('breadcrumb'))
+            <nav aria-label="breadcrumb" class="crumbs"><a href="{{ route('admin.dashboard') }}"><i class="fas fa-house"></i></a>@yield('breadcrumb')</nav>
         @endif
-
         @yield('content')
+    </main>
+</div>
+
+<div class="img-lightbox" id="imgLightbox" aria-hidden="true">
+    <div class="img-lightbox-toolbar">
+        <button type="button" class="lb-btn" data-lb-zoomout aria-label="Perkecil"><i class="fas fa-magnifying-glass-minus"></i></button>
+        <span class="lb-zoom" id="lbZoom">100%</span>
+        <button type="button" class="lb-btn" data-lb-zoomin aria-label="Perbesar"><i class="fas fa-magnifying-glass-plus"></i></button>
+        <button type="button" class="lb-btn" data-lb-reset aria-label="Reset"><i class="fas fa-arrows-rotate"></i></button>
+        <button type="button" class="lb-btn lb-close" data-lb-close aria-label="Tutup"><i class="fas fa-xmark"></i></button>
     </div>
+    <div class="img-lightbox-stage" id="lbStage">
+        <img id="lbImage" src="" alt="Pratinjau gambar" draggable="false">
+    </div>
+    <div class="img-lightbox-hint">Scroll untuk zoom · seret untuk menggeser</div>
+</div>
 
-    <script>
-        document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+<script>
+    document.getElementById('current-date').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    const navBar=document.getElementById('adminNav'),navToggle=document.getElementById('navToggle');
+    navToggle.addEventListener('click',()=>navBar.classList.toggle('nav-open'));
+    document.querySelectorAll('.admin-nav a').forEach(a=>a.addEventListener('click',()=>navBar.classList.remove('nav-open')));
+
+    // ===== Image lightbox dengan zoom in/out + geser =====
+    (function(){
+        var lb=document.getElementById('imgLightbox'), img=document.getElementById('lbImage'),
+            stage=document.getElementById('lbStage'), zoomLabel=document.getElementById('lbZoom');
+        if(!lb) return;
+        var scale=1, tx=0, ty=0, dragging=false, sx=0, sy=0;
+        var MIN=0.5, MAX=5;
+
+        function apply(){ img.style.transform='translate('+tx+'px,'+ty+'px) scale('+scale+')'; zoomLabel.textContent=Math.round(scale*100)+'%'; }
+        function reset(){ scale=1; tx=0; ty=0; apply(); }
+        function open(src){ img.src=src; reset(); lb.classList.add('open'); lb.setAttribute('aria-hidden','false'); }
+        function close(){ lb.classList.remove('open'); lb.setAttribute('aria-hidden','true'); img.src=''; }
+        function setScale(s){ scale=Math.min(MAX, Math.max(MIN, s)); if(scale<=1){ tx=0; ty=0; } apply(); }
+
+        // Buka lightbox saat gambar zoomable diklik
+        document.addEventListener('click', function(e){
+            var t=e.target.closest('[data-zoomable]');
+            if(t){ e.preventDefault(); open(t.getAttribute('data-full') || t.getAttribute('src')); }
         });
 
-        document.getElementById("sidebarToggle").addEventListener("click", function() {
-            document.getElementById("sidebar").classList.toggle("active");
-            document.getElementById("overlay").classList.toggle("active");
-        });
+        lb.querySelector('[data-lb-close]').addEventListener('click', close);
+        lb.querySelector('[data-lb-zoomin]').addEventListener('click', function(){ setScale(scale+0.25); });
+        lb.querySelector('[data-lb-zoomout]').addEventListener('click', function(){ setScale(scale-0.25); });
+        lb.querySelector('[data-lb-reset]').addEventListener('click', reset);
+        lb.addEventListener('click', function(e){ if(e.target===lb || e.target===stage) close(); });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape' && lb.classList.contains('open')) close(); });
 
-        document.getElementById("overlay").addEventListener("click", function() {
-            document.getElementById("sidebar").classList.remove("active");
-            this.classList.remove("active");
-        });
-    </script>
+        // Zoom via scroll
+        stage.addEventListener('wheel', function(e){ e.preventDefault(); setScale(scale + (e.deltaY<0?0.15:-0.15)); }, {passive:false});
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+        // Geser (drag) saat ter-zoom
+        stage.addEventListener('mousedown', function(e){ if(scale<=1) return; dragging=true; sx=e.clientX-tx; sy=e.clientY-ty; stage.classList.add('grabbing'); });
+        window.addEventListener('mousemove', function(e){ if(!dragging) return; tx=e.clientX-sx; ty=e.clientY-sy; apply(); });
+        window.addEventListener('mouseup', function(){ dragging=false; stage.classList.remove('grabbing'); });
+    })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-
 </html>

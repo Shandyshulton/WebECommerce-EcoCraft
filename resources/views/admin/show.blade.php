@@ -1,14 +1,14 @@
 @extends('layout.app')
 
 @section('breadcrumb')
-    <li class="breadcrumb-item"><a href="{{ route('admin.sellers.verify') }}">Verifikasi Seller</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Detail Seller</li>
+    <a href="{{ route('admin.sellers.verify') }}">Verifikasi Seller</a>
+    <span class="current">Detail Seller</span>
 @endsection
 
 @section('content')
-<h1>Detail Seller: {{ $seller->name_sellers }}</h1>
+<div class="page-heading"><div><div class="eyebrow">Seller profile</div><h1>{{ $seller->name_sellers }}</h1><p class="subtle mb-0">Detail lengkap untuk membantu proses verifikasi.</p></div><a class="btn-brand" href="{{ route('admin.sellers.verify') }}"><i class="fas fa-arrow-left"></i> Kembali</a></div>
 
-<table class="table table-bordered">
+<section class="panel"><div class="admin-table-scroll"><table class="table">
     <tr>
         <th>ID Seller</th>
         <td>{{ $seller->id_sellers }}</td>
@@ -61,14 +61,12 @@
         <th>KTP</th>
         <td>
             @if($seller->ktp_image)
-                <img src="{{ asset('storage/ktp_sellers/' . basename($seller->ktp_image)) }}" alt="KTP" width="300" />
+                <img src="{{ asset('storage/ktp_sellers/' . basename($seller->ktp_image)) }}" alt="KTP" width="300" data-zoomable data-full="{{ asset('storage/ktp_sellers/' . basename($seller->ktp_image)) }}" />
             @else
                 Tidak ada KTP
             @endif
         </td>
     </tr>
-</table>
-
-<a href="{{ route('admin.sellers.verify') }}" class="btn btn-secondary">Kembali</a>
+</table></div></section>
 
 @endsection

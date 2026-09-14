@@ -7,38 +7,217 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
-use App\Models\Seller;
 use App\Models\Product;
+use App\Models\Seller;
+use App\Models\Order;
+use App\Models\CommunityStory;
+use App\Models\CommunityStoryComment;
+use App\Models\CustomerVoucher;
 
 class CustomerController extends Controller
 {
     /**
      * Menampilkan dashboard customer
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $user = Auth::guard('customer')->user();
-
         $products = Product::where('status', 'approved')
             ->where('is_active', 1)
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = $request->string('q')->trim()->toString();
+
+                $query->where(function ($productQuery) use ($term) {
+                    $productQuery->where('name', 'like', "%{$term}%")
+                        ->orWhere('category', 'like', "%{$term}%")
+                        ->orWhere('material_type', 'like', "%{$term}%")
+                        ->orWhere('description', 'like', "%{$term}%");
+                });
+            })
             ->latest()
+            ->paginate(12)
+            ->withQueryString();
+
+        // Total limbah dialihkan (global) dari seluruh item pesanan × faktor produk.
+        $globalWaste = \App\Models\OrderItem::with('product')->get()->sum(function ($item) {
+            return $item->quantity * (float) (optional($item->product)->waste_factor ?? 1.2);
+        });
+
+        $stats = [
+            'products' => Product::where('status', 'approved')->where('is_active', 1)->count(),
+            'sellers' => Seller::where('status', 'approved')->count(),
+            // 1 pohon per ~10 kg limbah dialihkan (estimasi), dihitung dari data nyata.
+            'trees' => (int) floor($globalWaste / 10),
+            'orders' => 0,
+            'spent' => 0,
+        ];
+
+        $stories = CommunityStory::where('is_active', 1)
+            ->where('featured', 1)
+            ->orderBy('sort_order')
             ->take(8)
             ->get();
 
-        return view('customer.dashboard', compact('products'));
+        if (Auth::guard('customer')->check()) {
+            $customerId = Auth::guard('customer')->id();
+            $stats['orders'] = Order::where('customer_id', $customerId)->count();
+            $stats['spent'] = Order::where('customer_id', $customerId)->sum('total');
+        }
 
-        // Cek apakah user juga daftar sebagai seller berdasarkan email
-        $seller = Seller::where('email', $user->email)->first();
+        $orders = collect();
+        $activeOrders = collect();
+        $impactTrend = [];
+        $impact = ['waste' => 0, 'carbon' => 0, 'artisans' => 0, 'coins' => 0, 'vouchers' => 0];
 
-        if ($seller) {
-            if ($seller->status === 'approved') {
-                session()->flash('success', 'Akun seller kamu telah disetujui!');
-            } elseif ($seller->status === 'rejected') {
-                session()->flash('error', 'Maaf, akun seller kamu ditolak. Mohon diperhatikan gambar dan datanya yang jelas. Terimakasih');
+        if (Auth::guard('customer')->check()) {
+            $orders = Order::with(['items.product', 'items.seller'])
+                ->where('customer_id', Auth::guard('customer')->id())
+                ->latest()
+                ->get();
+            $activeOrders = $orders->whereNotIn('status', ['Delivered', 'Cancelled'])->take(2);
+            $quantity = $orders->sum(fn ($order) => $order->items->sum('quantity'));
+
+            // Dampak dihitung dari faktor per produk (fallback default bila kosong).
+            $allItems = $orders->flatMap(fn ($order) => $order->items);
+            $wasteTotal = $allItems->sum(function ($item) {
+                $factor = optional($item->product)->waste_factor ?? 1.2;
+                return $item->quantity * (float) $factor;
+            });
+            $carbonTotal = $allItems->sum(function ($item) {
+                $factor = optional($item->product)->carbon_factor ?? 2.7;
+                return $item->quantity * (float) $factor;
+            });
+
+            $impact = [
+                'waste' => round($wasteTotal, 1),
+                'carbon' => round($carbonTotal, 1),
+                'artisans' => $allItems->pluck('seller_id')->unique()->count(),
+                // Saldo koin sirkular nyata dari dompet customer.
+                'coins' => (int) Auth::guard('customer')->user()->coin_balance,
+                // 1 pohon per ~10 kg limbah dialihkan (estimasi), non-hardcode.
+                'trees' => (int) floor($wasteTotal / 10),
+                // Voucher yang siap dipakai dari dompet customer.
+                'vouchers' => CustomerVoucher::where('customer_id', $customerId)
+                    ->where('status', 'available')
+                    ->count(),
+            ];
+            for ($month = 5; $month >= 0; $month--) {
+                $date = now()->subMonths($month);
+                $monthlyItems = $orders->filter(fn ($order) => $order->created_at->isSameMonth($date))
+                    ->flatMap(fn ($order) => $order->items);
+                $impactTrend[] = [
+                    'label' => $date->format("M 'y"),
+                    'waste' => round($monthlyItems->sum(fn ($i) => $i->quantity * (float) (optional($i->product)->waste_factor ?? 1.2)), 1),
+                    'carbon' => round($monthlyItems->sum(fn ($i) => $i->quantity * (float) (optional($i->product)->carbon_factor ?? 2.7)), 1),
+                ];
             }
         }
 
-        return view('customer.dashboard', compact('products', 'user'));
+        return view('customer.dashboard', compact('products', 'stories', 'stats', 'orders', 'activeOrders', 'impact', 'impactTrend'));
+    }
+
+    /**
+     * Halaman katalog: semua produk terverifikasi dengan pencarian
+     */
+    public function catalog(Request $request)
+    {
+        $products = Product::where('status', 'approved')
+            ->where('is_active', 1)
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = $request->string('q')->trim()->toString();
+
+                $query->where(function ($productQuery) use ($term) {
+                    $productQuery->where('name', 'like', "%{$term}%")
+                        ->orWhere('category', 'like', "%{$term}%")
+                        ->orWhere('material_type', 'like', "%{$term}%")
+                        ->orWhere('description', 'like', "%{$term}%");
+                });
+            })
+            ->latest()
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('customer.catalog', compact('products'));
+    }
+
+    /**
+     * Menampilkan halaman komunitas berisi baris sorotan dan cerita per topic
+     */
+    public function community()
+    {
+        $featured = CommunityStory::where('is_active', 1)
+            ->where('featured', 1)
+            ->orderBy('sort_order')
+            ->get();
+
+        $topics = CommunityStory::where('is_active', 1)
+            ->whereNotNull('topic')
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('topic');
+
+        return view('customer.community', compact('featured', 'topics'));
+    }
+
+    /**
+     * Menampilkan detail sebuah cerita komunitas beserta produk terkait
+     */
+    public function communityShow(CommunityStory $story)
+    {
+        abort_unless($story->is_active, 404);
+
+        $related = Product::where('status', 'approved')
+            ->where('is_active', 1)
+            ->when($story->material, function ($query) use ($story) {
+                $material = $story->material;
+                $query->where(function ($productQuery) use ($material) {
+                    $productQuery->where('material_type', 'like', "%{$material}%")
+                        ->orWhere('category', 'like', "%{$material}%")
+                        ->orWhere('name', 'like', "%{$material}%");
+                });
+            })
+            ->latest()
+            ->take(6)
+            ->get();
+
+        $relatedLabel = 'Karya dari bahan senada';
+
+        // Jika tidak ada produk senada, tampilkan karya pilihan terbaru
+        if ($related->isEmpty()) {
+            $related = Product::where('status', 'approved')
+                ->where('is_active', 1)
+                ->latest()
+                ->take(6)
+                ->get();
+            $relatedLabel = 'Karya pilihan EcoCraft';
+        }
+
+        $comments = CommunityStoryComment::with('customer')
+            ->where('story_id', $story->id_stories)
+            ->orderBy('created_at')
+            ->get();
+
+        return view('customer.community-show', compact('story', 'related', 'relatedLabel', 'comments'));
+    }
+
+    /**
+     * Menyimpan komentar/pertanyaan member pada cerita komunitas
+     */
+    public function storeComment(CommunityStory $story, Request $request)
+    {
+        abort_unless($story->is_active, 404);
+
+        $validated = $request->validate([
+            'comment' => 'required|string|min:3|max:1000',
+        ]);
+
+        CommunityStoryComment::create([
+            'story_id' => $story->id_stories,
+            'customer_id' => Auth::guard('customer')->id(),
+            'comment' => $validated['comment'],
+        ]);
+
+        return redirect()->to(route('community.show', $story->slug) . '#diskusi')
+            ->with('success', 'Komentar berhasil dikirim.');
     }
 
     /**

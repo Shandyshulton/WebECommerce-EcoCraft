@@ -1,0 +1,7 @@
+@php($role = 'admin')
+@php($title = 'Portal Admin')
+@php($heading = 'Jaga kualitas EcoCraft.')
+@php($lead = 'Masuk untuk memverifikasi seller, produk, dan aktivitas marketplace.')
+@php($action = route('admin.login.submit'))
+@php($registerUrl = null)
+@include('auth.role-login')

@@ -36,4 +36,19 @@ class Customer extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'customer_id', 'id_customers');
+    }
+
+    public function vouchers()
+    {
+        return $this->hasMany(CustomerVoucher::class, 'customer_id', 'id_customers');
+    }
+
+    public function coinTransactions()
+    {
+        return $this->hasMany(CoinTransaction::class, 'customer_id', 'id_customers');
+    }
 }

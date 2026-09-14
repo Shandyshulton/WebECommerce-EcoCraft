@@ -1,258 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="id">
 <head>
-<meta charset="UTF-8" />
-<title>User Login</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
-
-<style>
-  * {
-    margin: 0; padding: 0;
-    font-family: 'Inter', sans-serif;
-    box-sizing: border-box;
-  }
-  body {
-    background-color: #f8f8dc;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  }
-  .login-container {
-    display: flex;
-    width: 970px;
-    height: 502.5px;
-    background-color: white;
-    border-radius: 30px;
-    overflow: hidden;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  }
-  .form-section {
-    flex: 1;
-    padding: 50px 40px;
-  }
-  .form-section h2 {
-    text-align: center;
-    margin-bottom: 40px;
-    font-size: 28px;
-  }
-  label {
-    font-weight: 600;
-    font-size: 14px;
-  }
-  .input-group {
-    margin-bottom: 20px;
-    position: relative;
-  }
-  .input-group input {
-    width: 100%;
-    padding: 12px 12px 12px 40px;
-    margin-top: 6px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    font-size: 14px;
-  }
-  .input-group i {
-    position: absolute;
-    left: 12px;
-    top: 47px;
-    transform: translateY(-50%);
-    color: #888;
-    font-size: 18px;
-  }
-  .btn-login {
-    background-color: #4CAF50;
-    color: white;
-    padding: 12px;
-    width: 100%;
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    cursor: pointer;
-  }
-  .btn-login:hover {
-    background-color: #45a049;
-  }
-  .form-footer {
-    margin-top: 0.5rem;
-    text-align: left;
-    font-size: 13px;
-    color: #888;
-  }
-  .form-footer a {
-    text-decoration: none;
-    color: #888;
-  }
-  .form-footer a:hover {
-    text-decoration: underline;
-  }
-  .image-section {
-    flex: 1;
-    background: url('/images/Login-Background.png') no-repeat center center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .image-section .welcome-text {
-    color: white;
-    font-size: 32px;
-    font-weight: bold;
-    text-align: center;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
-  }
-  .create-account-section {
-    text-align: center;
-    margin-top: 55px;
-  }
-  .create-account-section a {
-    font-size: 16px;
-    color: #7C7575;
-    text-decoration: none;
-    font-weight: 600;
-  }
-  .create-account-section i {
-    margin-left: 8px;
-    font-size: 18px;
-    transition: transform 0.3s ease-in-out;
-  }
-  .create-account-section a:hover i {
-    transform: translateX(5px);
-  }
-
-  /* Toast Container */
-  #toast {
-    position: fixed;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    min-width: 320px;
-    max-width: 90vw;
-    background-color: #28a745;
-    color: #fff;
-    font-weight: 600;
-    padding: 16px 20px;
-    border-radius: 8px;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.25);
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.4s ease, visibility 0.4s ease;
-    z-index: 9999;
-  }
-  #toast.error {
-    background-color: #dc3545;
-  }
-  #toast.show {
-    opacity: 1;
-    visibility: visible;
-  }
-  #toast i {
-    font-size: 20px;
-  }
-  #toast button.close-btn {
-    margin-left: auto;
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 20px;
-    cursor: pointer;
-    outline: none;
-    transition: color 0.3s ease;
-  }
-  #toast button.close-btn:hover {
-    color: #bbb;
-  }
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Masuk | EcoCraft</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--canvas:#fbf9f5;--surface:#f4efeb;--ink:#1b2520;--muted:#717e77;--brand:#1e4b38;--accent:#c86d51;--line:#e5dfd5}
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--canvas);color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;display:grid;place-items:center;padding:24px}a{color:inherit;text-decoration:none}
+        .back-home{display:inline-flex;align-items:center;gap:7px;margin-bottom:18px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--brand);font:700 12px 'Plus Jakarta Sans';cursor:pointer}
+        .back-home:hover{background:#edf4ee;border-color:#cfe1d3}
+        .auth-shell{width:min(1060px,100%);display:grid;grid-template-columns:1fr 1fr;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 48px -8px rgba(27,37,32,.14)}
+        .auth-panel{padding:clamp(28px,5vw,58px)}.brand{display:flex;align-items:center;gap:10px;color:var(--brand);font-weight:800;margin-bottom:44px}.brand img{width:34px;height:34px;object-fit:contain}.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.auth-panel h1{font:600 clamp(34px,4vw,48px)/1.05 'EB Garamond',serif;margin:10px 0}.lead{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 28px}.field{margin-bottom:17px}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:7px}.field input{width:100%;min-height:46px;padding:11px 13px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font:inherit;color:var(--ink)}.field input:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(30,75,56,.12)}.password-wrap{position:relative}.password-wrap input{padding-right:48px}.toggle-password{position:absolute;right:12px;top:50%;border:0;background:none;color:var(--muted);cursor:pointer;transform:translateY(-50%)}.actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0 22px;font-size:12px}.actions a{color:var(--brand);font-weight:700}.btn{display:inline-flex;justify-content:center;align-items:center;width:100%;min-height:46px;padding:11px 18px;border:1px solid var(--brand);border-radius:8px;background:var(--brand);color:#fff;font:700 13px 'Plus Jakarta Sans';cursor:pointer}.btn:hover{background:#163729}.auth-footer{text-align:center;color:var(--muted);font-size:12px;margin-top:22px}.auth-footer a{color:var(--brand);font-weight:800}.alert{padding:11px 13px;border-radius:8px;background:#ffebe6;color:#8b351f;font-size:12px;margin-bottom:18px}.alert ul{margin:0;padding-left:18px}.auth-art{min-height:560px;display:flex;align-items:flex-end;padding:34px;background:linear-gradient(180deg,rgba(2,52,35,.1),rgba(2,52,35,.82)),url('{{ asset('assets/images/collection/banner welcome.png') }}') center/cover}.auth-art h2{color:#fff;font:600 42px/1 'EB Garamond',serif;margin:0 0 8px}.auth-art p{color:rgba(255,255,255,.82);font-size:13px;line-height:1.6;max-width:280px;margin:0}@media(max-width:760px){body{padding:12px}.auth-shell{grid-template-columns:1fr}.auth-art{min-height:190px;order:-1;padding:24px}.auth-art h2{font-size:32px}.auth-panel{padding:28px 22px}.brand{margin-bottom:30px}}
+    </style>
 </head>
 <body>
-<div class="login-container">
-  <div class="form-section">
-    <h2>User Login</h2>
-    <form method="POST" action="{{ route('login') }}">
-      @csrf
-      <div class="input-group">
-        <label>Email</label>
-        <div>
-          <i class="fa fa-user"></i>
-          <input type="email" name="email" placeholder="Email" required>
-        </div>
-      </div>
-      <div class="input-group">
-        <label>Password</label>
-        <div>
-          <i class="fa fa-lock" id="password-icon" onclick="togglePassword()"></i>
-          <input type="password" name="password" id="password" placeholder="Password" required>
-        </div>
-      </div>
-      <button type="submit" class="btn-login">Login</button>
-    </form>
-    <div class="form-footer">
-      <a href="{{ route('password.reset') }}" class="text-muted text-decoration-none">
-        Forgot Password?
-      </a>
-    </div>
-    <div class="create-account-section">
-      <a href="{{ route('register') }}">Create Your Account<i class="fa fa-arrow-right"></i></a>
-    </div>
-  </div>
-  <div class="image-section">
-    <div class="welcome-text">HELLO,<br>WELCOME BACK</div>
-  </div>
-</div>
-
-<!-- Toast container -->
-<div id="toast" role="alert" aria-live="assertive" aria-atomic="true">
-  <i class="fa fa-check-circle"></i>
-  <span id="toast-message"></span>
-  <button class="close-btn" aria-label="Close" onclick="hideToast()">&times;</button>
-</div>
-
-<script>
-  function togglePassword() {
-    var passwordField = document.getElementById("password");
-    var passwordIcon = document.getElementById("password-icon");
-    if (passwordField.type === "password") {
-      passwordField.type = "text";
-      passwordIcon.classList.remove("fa-lock");
-      passwordIcon.classList.add("fa-unlock");
-    } else {
-      passwordField.type = "password";
-      passwordIcon.classList.remove("fa-unlock");
-      passwordIcon.classList.add("fa-lock");
-    }
-  }
-
-  const toast = document.getElementById("toast");
-  const toastMessage = document.getElementById("toast-message");
-  const toastIcon = toast.querySelector("i");
-
-  function showToast(message, type = 'success') {
-    toastMessage.textContent = message;
-    toast.classList.add("show");
-    if(type === 'error'){
-      toast.classList.add('error');
-      toastIcon.className = 'fa fa-exclamation-circle';
-    } else {
-      toast.classList.remove('error');
-      toastIcon.className = 'fa fa-check-circle';
-    }
-  }
-
-  function hideToast() {
-    toast.classList.remove("show");
-  }
-
-  // Show toast on session messages
-  window.onload = function() {
-    @if(session('success'))
-      showToast("{{ session('success') }}", 'success');
-    @elseif(session('error'))
-      showToast("{{ session('error') }}", 'error');
-    @endif
-  };
-</script>
+<main class="auth-shell">
+    <section class="auth-panel">
+        <a class="back-home" href="{{ route('customer.dashboard') }}">&larr; Kembali ke beranda</a>
+        <div class="eyebrow">Area pelanggan terkurasi</div>
+        <h1>Selamat datang kembali</h1>
+        <p class="lead">Masuk untuk melanjutkan belanja karya sirkular dan memantau pesananmu.</p>
+        @if(session('success'))<div class="alert" style="background:#e5f3e9;color:#1e4b38">{{ session('success') }}</div>@endif
+        @if($errors->any())<div class="alert"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+        <form method="POST" action="{{ route('login.submit') }}">
+            @csrf
+            <div class="field"><label for="email">Email atau nomor WhatsApp</label><input id="email" type="text" name="email" value="{{ old('email') }}" autocomplete="username" placeholder="nama@email.com atau 08xxxxxxxxxx" required></div>
+            <div class="field"><label for="password">Kata sandi</label><div class="password-wrap"><input id="password" type="password" name="password" autocomplete="current-password" placeholder="Masukkan kata sandi" required><button class="toggle-password" type="button" onclick="togglePassword('password',this)" aria-label="Tampilkan kata sandi">Lihat</button></div></div>
+            <div class="actions"><a href="{{ route('password.request') }}">Lupa kata sandi?</a><span>Belum punya akun?</span></div>
+            <button class="btn" type="submit">Masuk ke akun</button>
+        </form>
+        <div class="auth-footer">Belum menjadi bagian EcoCraft? <a href="{{ route('register') }}">Daftar akun baru</a></div>
+    </section>
+    <aside class="auth-art"><div><h2>Belanja dengan makna.</h2><p>Temukan karya pengrajin lokal dari material yang dirawat kembali menjadi sesuatu yang indah.</p></div></aside>
+</main>
+<script>function togglePassword(id,button){const input=document.getElementById(id);const visible=input.type==='text';input.type=visible?'password':'text';button.textContent=visible?'Lihat':'Sembunyikan';}</script>
 </body>
 </html>

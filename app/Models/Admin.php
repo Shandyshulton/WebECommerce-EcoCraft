@@ -17,12 +17,18 @@ class Admin extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'role',
         'phone_number',
         'password',
         'address',
         'gender',
         'profile_image',
     ];
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
+    }
 
     public function getProfileImageUrlAttribute()
 {

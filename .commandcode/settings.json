@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(set:*)",
+      "Shell(agent-browser:*)",
+      "Shell(php artisan migrate --force)",
+      "Shell(php artisan route:clear)",
+      "Shell(php artisan route:list --name=community)",
+      "Shell(php artisan view:cache)",
+      "Shell(php artisan serve --port=8899)",
+      "Shell(curl -s -o %TEMP%story2.html -w guest=%{http_code}\\n http://127.0.0.1:8899/community/sanggar-kayu-resik-jepara)",
+      "Shell(php -r =file_get_contents(getenv('TEMP').'/story2.html'); echo 'diskusi-section='.(strpos(,'Diskusi komunitas')!==false?'yes':'NO').PHP_EOL; echo 'guest-cta='.(strpos(,'Masuk untuk bertanya')!==false?'yes':'NO').PHP_EOL; echo 'empty-state='.(strpos(,'Jadilah yang pertama bertanya')!==false?'yes':'NO').PHP_EOL; echo 'form-visible='.(strpos(,'name=\"comment\"')!==false?'yes':'NO').PHP_EOL;)",
+      "Shell(php C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\seed-comment.php)",
+      "Shell(curl -s -o %TEMP%story3.html http://127.0.0.1:8899/community/sanggar-kayu-resik-jepara)",
+      "Shell(php -r =file_get_contents(getenv('TEMP').'/story3.html'); echo 'comment-text='.(strpos(,'ukuran 120cm')!==false?'yes':'NO').PHP_EOL; echo 'member-label='.(strpos(,'Member EcoCraft')!==false?'yes':'NO').PHP_EOL; echo 'empty-state-gone='.(strpos(,'Jadilah yang pertama bertanya')!==false?'NO':'yes').PHP_EOL;)",
+      "Shell(php -r \"require 'C:\\laragon\\www\\WebECommerce-EcoCraft\\vendor\\autoload.php'; \\$app=require 'C:\\laragon\\www\\WebECommerce-EcoCraft\\bootstrap\\app.php'; \\$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); \\$n=App\\Models\\CommunityStoryComment::where('comment','like','Tes komentar:%')->delete(); echo 'deleted='.\\$n.PHP_EOL;\")",
+      "Shell(php \"C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\clean-comment.php\")",
+      "Shell(php \"C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\create-test-customer.php\")",
+      "Shell(php \"C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\cleanup-test-customer.php\")",
+      "Shell(php C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\cleanup-test-customer.php)",
+      "Shell(php C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\create-test-customer.php)",
+      "Shell(set AGENT_BROWSER_SESSION=cmdc-member3 && agent-browser click @e\"story-row-member\" 2>NUL & agent-browser snapshot -i)",
+      "Shell(php \"C:\\Users\\Shandy\\AppData\\Local\\Temp\\commandcode\\C--laragon-www-WebECommerce-EcoCraft\\477f8b34-6c1a-4500-b918-189e85284d1d\\scratchpad\\check-products2.php\")",
+      "Shell(php artisan db:seed --class=ProductSeeder --force)",
+      "Shell(php artisan route:list --name=catalog)",
+      "Shell(curl -s -o %TEMP%katalog.html -w katalog=%{http_code}  http://127.0.0.1:8899/katalog)",
+      "Shell(curl -s -o %TEMP%dashx.html -w dashboard=%{http_code}\\n http://127.0.0.1:8899/customer/dashboard)",
+      "Shell(php -r =file_get_contents(getenv('TEMP').'/katalog.html'); echo 'katalog-cards='.substr_count(,'product-card').PHP_EOL; echo 'katalog-title='.(strpos(,'Semua karya terkurasi')!==false?'yes':'NO').PHP_EOL; echo 'search-form='.(strpos(,'action=\"/katalog\"')!==false?'yes':'NO').PHP_EOL; =file_get_contents(getenv('TEMP').'/dashx.html'); echo 'dashboard-link=to-katalog='.(strpos(,'/katalog\"')!==false?'yes':'NO').PHP_EOL; echo 'dashboard-link-to-cart-gone='.(strpos(,'/cart\"')===false||substr_count(,'href=\"/cart\"')===0?'yes':'check').PHP_EOL;)",
+      "Shell(php -r \"$k=file_get_contents(getenv('TEMP').'/katalog.html'); preg_match_all('/action=\\\"([^\\\"]*katalog[^\\\"]*)\\\"/',$k,$m); echo 'action-katalog='.(count($m[1])?implode(' | ',$m[1]):'NONE').PHP_EOL; echo 'input-q='.(strpos($k,'name=\\\"q\\\"')!==false?'yes':'NO').PHP_EOL; echo 'pagination='.(strpos($k,'pagination')!==false?'yes':'NO').PHP_EOL;\")",
+      "Shell(php -r \"$k=file_get_contents(getenv('TEMP').'/katalog.html'); $p=strpos($k,'catalog-search'); echo substr($k,$p,320).PHP_EOL;\")",
+      "Shell(php -r \"$k=file_get_contents(getenv('TEMP').'/katalog.html'); $p=strpos($k,'type=\\\"search\\\"'); echo substr($k, max(0,$p-200), 400).PHP_EOL;\")",
+      "Shell(php -r \"$k=file_get_contents(getenv('TEMP').'/katalog.html'); $p=strpos($k,'Cari nama, bahan'); echo 'catalog-form-found='.($p!==false?'yes':'NO').PHP_EOL; if($p!==false){ echo substr($k, max(0,$p-260), 360).PHP_EOL; }\")",
+      "Shell(php -r \"$k=file_get_contents(getenv('TEMP').'/katalog.html'); echo 'rendered-cards='.substr_count($k,'<article class=\\\"product-card\\\">').PHP_EOL;\")",
+      "Shell(php -r \"$h=file_get_contents('resources/views/layouts/customer.blade.php'); $lines=explode(\\\"\\n\\\",$h); foreach($lines as $i=>$l){ if(strpos($l,'account-chip:after')!==false || strpos($l,'account-chip::after')!==false){ echo ($i+1).': '.substr($l,0,80).'... [len='.strlen($l).']'.PHP_EOL; } }\")",
+      "Shell(php -r \"$h=file('resources/views/layouts/customer.blade.php'); $l=$h[245]; $p=strpos($l,'account-chip:after'); echo substr($l, max(0,$p-140), 260).PHP_EOL;\")",
+      "powershell"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

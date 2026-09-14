@@ -16,9 +16,6 @@ class RegisterController extends Controller
 
     public function register(Request $request)
     {
-        $messages = [
-            'email.regex' => 'Email harus menggunakan domain gmail.com, yahoo.com, atau outlook.com',
-        ];
         $validatedData = $request->validate([
             'name_customers' => 'required|string|max:255',
             'email' => [
@@ -26,7 +23,6 @@ class RegisterController extends Controller
                 'email',
                 'max:255',
                 'unique:customers',
-                'regex:/^[\w.+\-]+@(gmail\.com|yahoo\.com|outlook\.com)$/i',
             ],
             'phone_number' => 'required|string|max:20',
             'dob' => 'required|date|before:today',  // validasi DOB harus tanggal dan sebelum hari ini
@@ -34,8 +30,8 @@ class RegisterController extends Controller
             'address' => 'required|string|max:255',
             'province' => 'required|string|max:100',
             'city' => 'required|string|max:100',
-            'password' => 'required|string|max:8|confirmed',
-        ], $messages);
+            'password' => 'required|string|min:8|max:255|confirmed',
+        ]);
 
         $customer = Customer::create([
             'name_customers' => $validatedData['name_customers'],

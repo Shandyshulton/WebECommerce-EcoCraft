@@ -5,6 +5,9 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// Laravel 9 emits PHP 8.4 deprecation notices before the framework boots.
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
 /*
 |--------------------------------------------------------------------------
 | Check If The Application Is Under Maintenance

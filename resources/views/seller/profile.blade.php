@@ -1,158 +1,84 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Edit Profile Seller</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f0f0f0;
-            padding: 40px;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-        input[type="text"],
-        input[type="email"],
-        input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-        }
-        .profile-photo {
-            display: block;
-            margin-bottom: 15px;
-            width: 120px;
-            height: 120px;
-            object-fit: cover;
-            border-radius: 50%;
-            border: 2px solid #ccc;
-        }
-        .btn {
-            background: #28a745;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .btn-back {
-            display: inline-block;
-            margin-bottom: 20px;
-            background-color: #6c757d;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 6px;
-            text-decoration: none;
-        }
-        .btn:hover {
-            background: #218838;
-        }
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 6px;
-        }
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
+@extends('seller.dashboard')
 
-         <a href="{{ route('seller.dashboard') }}" class="btn-back">← Back to Dashboard</a>
+@section('content')
+<style>
+    .profile-wrap{max-width:640px;margin:auto}
+    .profile-card{padding:24px;background:#fff;border:1px solid var(--line);border-radius:14px}
+    .profile-form .form-group{margin-bottom:18px}
+    .profile-form label{display:block;margin-bottom:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+    .profile-form input[type="text"],.profile-form input[type="email"],.profile-form input[type="file"]{width:100%;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;font:13px 'Plus Jakarta Sans'}
+    .profile-form input:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(30,75,56,.12)}
+    .profile-photo{display:block;margin-bottom:14px;width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 14px rgba(23,35,28,.12)}
+    .profile-form .alert{border-radius:10px}
+</style>
 
-    <h1>Edit Profile Seller</h1>
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Pengaturan toko</div>
+        <h1>Edit Profil</h1>
+        <p class="subtle mb-0">Perbarui identitas dan foto tokomu agar tetap terpercaya.</p>
+    </div>
+    <a class="btn-brand" href="{{ route('seller.dashboard') }}"><i class="fas fa-arrow-left"></i> Kembali</a>
+</div>
 
-    @if(session('success'))
-        <div class="alert alert-success">
-            {{ session('success') }}
-        </div>
-    @endif
+<div class="profile-wrap">
+    <div class="profile-card">
+        @if(session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
 
-    @if ($errors->any())
-        <div class="alert alert-error">
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
-    <form method="POST" action="{{ route('seller.profile.update') }}" enctype="multipart/form-data">
-        @csrf
-        @method('PUT')
+        <form class="profile-form" method="POST" action="{{ route('seller.profile.update') }}" enctype="multipart/form-data">
+            @csrf
+            @method('PUT')
 
-        @php
-            $photoPath = $seller->profile_image ? asset('storage/' . $seller->profile_image) : null;
-        @endphp
+            @php
+                $photoPath = $seller->profile_image ? asset('storage/' . $seller->profile_image) : null;
+            @endphp
 
-        <div class="form-group">
-            <label>Profile Photo</label>
-            @if($photoPath && file_exists(public_path('storage/' . $seller->profile_image)))
-                <img id="profile-preview" src="{{ $photoPath }}" class="profile-photo" alt="Profile Image">
-            @else
-                <img id="profile-preview" src="https://via.placeholder.com/120?text=No+Image" class="profile-photo" alt="No Image">
-            @endif
-            <input type="file" name="profile_image" id="profile_image" accept="image/*" onchange="previewImage(event)">
-        </div>
+            <div class="form-group">
+                <label>Foto Profil</label>
+                @if($photoPath && file_exists(public_path('storage/' . $seller->profile_image)))
+                    <img id="profile-preview" src="{{ $photoPath }}" class="profile-photo" alt="Profile Image">
+                @else
+                    <img id="profile-preview" src="{{ asset('images/default-profile.png') }}" class="profile-photo" alt="No Image">
+                @endif
+                <input type="file" name="profile_image" id="profile_image" accept="image/*" onchange="previewImage(event)">
+            </div>
 
-        <div class="form-group">
-            <label>Name</label>
-            <input type="text" name="name_sellers" value="{{ old('name_sellers', $seller->name_sellers) }}" required>
-        </div>
+            <div class="form-group">
+                <label>Nama</label>
+                <input type="text" name="name_sellers" value="{{ old('name_sellers', $seller->name_sellers) }}" required>
+            </div>
 
-        <div class="form-group">
-            <label>Email</label>
-            <input type="email" name="email" value="{{ old('email', $seller->email) }}" required>
-        </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ old('email', $seller->email) }}" required>
+            </div>
 
-        <button type="submit" class="btn">Save Changes</button>
-    </form>
+            <button type="submit" class="btn-brand"><i class="fas fa-floppy-disk"></i> Simpan Perubahan</button>
+        </form>
+    </div>
 </div>
 
 <script>
     function previewImage(event) {
         const input = event.target;
         const preview = document.getElementById('profile-preview');
-
         if (input.files && input.files[0]) {
             const reader = new FileReader();
-
-            reader.onload = function(e) {
-                preview.src = e.target.result;
-            }
-
+            reader.onload = function(e) { preview.src = e.target.result; }
             reader.readAsDataURL(input.files[0]);
         }
     }
 </script>
-</body>
-</html>
+@endsection

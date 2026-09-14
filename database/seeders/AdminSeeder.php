@@ -12,14 +12,24 @@ class AdminSeeder extends Seeder
 {
     public function run()
     {
-        Admin::create([
-            'name' => 'Muhammad Rafly', // Nama admin
-            'email' => 'rafly@gmail.com', // Email admin
-            'phone_number' => '081290983455', // Nomor telepon admin
-            'password' => Hash::make('rafly123'), // Password yang di-hash
-            'address' => 'Jl. Mesjid II Street No. 1', // Alamat admin
-            'gender' => 'male', // Gender admin (male, female, or other)
+        // Super Admin (akses penuh, termasuk kelola akun admin)
+        Admin::updateOrCreate(['email' => 'rafly@gmail.com'], [
+            'name' => 'Muhammad Rafly',
+            'role' => 'super_admin',
+            'phone_number' => '081290983455',
+            'password' => Hash::make('rafly123'),
+            'address' => 'Jl. Mesjid II Street No. 1',
+            'gender' => 'male',
+        ]);
+
+        // Admin biasa (contoh — verifikasi seller/produk saja)
+        Admin::updateOrCreate(['email' => 'admin@ecocraft.test'], [
+            'name' => 'Admin EcoCraft',
+            'role' => 'admin',
+            'phone_number' => '081200000000',
+            'password' => Hash::make('admin123'),
+            'address' => 'Kantor EcoCraft',
+            'gender' => 'other',
         ]);
     }
 }
-

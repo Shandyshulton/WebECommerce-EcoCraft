@@ -97,6 +97,14 @@
             background-color: #f8d7da;
             color: #721c24;
         }
+
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            .container { padding: 22px 18px; }
+            h1 { font-size: 26px; }
+            .profile-photo { width: 96px; height: 96px; }
+            .btn, .btn-back { width: 100%; text-align: center; }
+        }
     </style>
 </head>
 <body>

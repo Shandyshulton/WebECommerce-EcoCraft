@@ -5,20 +5,53 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-    // Menampilkan daftar produk yang sudah disetujui
-    public function index()
+    // Menampilkan daftar produk milik seller (dengan filter)
+    public function index(Request $request)
     {
-        $products = Product::where('status', 'approved')->paginate(10);
-        return view('products.index', compact('products'));
+        $sellerId = Auth::guard('seller')->id();
+
+        $query = Product::where('seller_id', $sellerId);
+
+        if ($search = trim((string) $request->get('q'))) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+        if ($category = $request->get('category')) {
+            $query->where('category', $category);
+        }
+
+        $products = $query->latest()->paginate(10)->withQueryString();
+
+        // Daftar kategori milik seller untuk dropdown filter
+        $categories = Product::where('seller_id', $sellerId)
+            ->whereNotNull('category')->where('category', '!=', '')
+            ->distinct()->orderBy('category')->pluck('category');
+
+        // Statistik ringkas
+        $base = Product::where('seller_id', $sellerId);
+        $stats = [
+            'total' => (clone $base)->count(),
+            'active' => (clone $base)->where('status', 'approved')->where('is_active', true)->count(),
+            'pending' => (clone $base)->where('status', 'pending')->count(),
+            'out' => (clone $base)->where('in_stock', false)->count(),
+        ];
+
+        return view('products.index', compact('products', 'categories', 'stats'));
     }
 
     // Menampilkan form untuk menambah produk
     public function create()
     {
-        return view('products.create');
+        return view('products.create', [
+            'materials' => \App\Models\ImpactFactor::orderBy('material_type')->get(),
+        ]);
     }
 
     // Menyimpan produk baru
@@ -26,10 +59,13 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:products,slug',
+            'slug' => 'nullable|string|max:255',
             'price' => 'required|numeric',
             'category' => 'required|string',
             'material_type' => 'required|string',
+            'material_type_other' => 'nullable|string|max:100',
+            'waste_factor' => 'nullable|numeric|min:0|max:9999',
+            'carbon_factor' => 'nullable|numeric|min:0|max:9999',
             'quantity' => 'required|integer',
             'description' => 'nullable|string',
             'image_url' => 'required|image|mimes:jpg,jpeg,png|max:2048',
@@ -42,15 +78,27 @@ class ProductController extends Controller
         try {
             $product = new Product();
             $product->name = $request->name;
-            $product->slug = $request->slug;
+            $product->slug = $this->uniqueSlug($request->name);
             $product->price = $request->price;
             $product->category = $request->category;
-            $product->material_type = $request->material_type;
+            $material = $request->material_type === '__other'
+                ? ($request->material_type_other ?: 'Lainnya')
+                : $request->material_type;
+            $product->material_type = $material;
+
+            // Faktor: pakai input; jika kosong, ambil dari referensi material; jika tak ada, default.
+            $ref = \App\Models\ImpactFactor::where('material_type', $material)->first();
+            $product->waste_factor = $request->filled('waste_factor')
+                ? $request->waste_factor
+                : ($ref->waste_per_item ?? 1.20);
+            $product->carbon_factor = $request->filled('carbon_factor')
+                ? $request->carbon_factor
+                : ($ref->carbon_per_item ?? 2.70);
             $product->description = $request->description;
             $product->quantity = $request->quantity;
             $product->in_stock = $request->in_stock;
             $product->is_active = $request->is_active;
-            $product->seller_id = auth()->user()->id_sellers;
+            $product->seller_id = Auth::guard('seller')->id();
 
             // Simpan gambar utama
             if ($request->hasFile('image_url')) {
@@ -58,13 +106,13 @@ class ProductController extends Controller
                 $product->image_url = $imagePath;
             }
 
-            // Simpan gambar galeri jika ada
+            // Simpan gambar galeri jika ada (bisa lebih dari 1)
             if ($request->hasFile('image_gallery')) {
                 $galleryPaths = [];
                 foreach ($request->file('image_gallery') as $image) {
                     $galleryPaths[] = $image->store('product_images/gallery', 'public');
                 }
-                $product->image_gallery = json_encode($galleryPaths);
+                $product->image_gallery = $galleryPaths;
             }
 
             // Set status menjadi pending
@@ -82,8 +130,11 @@ class ProductController extends Controller
     // Menampilkan form untuk mengedit produk
     public function edit($id)
     {
-        $product = Product::findOrFail($id);
-        return view('products.edit', compact('product'));
+        $product = Product::where('seller_id', Auth::guard('seller')->id())->findOrFail($id);
+        return view('products.edit', [
+            'product' => $product,
+            'materials' => \App\Models\ImpactFactor::orderBy('material_type')->get(),
+        ]);
     }
 
     // Memperbarui data produk
@@ -91,10 +142,13 @@ class ProductController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:products,slug,' . $id,
+            'slug' => 'nullable|string|max:255',
             'price' => 'required|numeric',
             'category' => 'required|string',
             'material_type' => 'required|string',
+            'material_type_other' => 'nullable|string|max:100',
+            'waste_factor' => 'nullable|numeric|min:0|max:9999',
+            'carbon_factor' => 'nullable|numeric|min:0|max:9999',
             'quantity' => 'required|integer',
             'description' => 'nullable|string',
             'image_url' => 'nullable|image',
@@ -102,12 +156,23 @@ class ProductController extends Controller
             'image_gallery.*' => 'image',
         ]);
 
-        $product = Product::findOrFail($id);
+        $product = Product::where('seller_id', Auth::guard('seller')->id())->findOrFail($id);
         $product->name = $request->name;
-        $product->slug = $request->slug;
+        $product->slug = $this->uniqueSlug($request->name, $product->getKey());
         $product->price = $request->price;
         $product->category = $request->category;
-        $product->material_type = $request->material_type;
+        $material = $request->material_type === '__other'
+            ? ($request->material_type_other ?: 'Lainnya')
+            : $request->material_type;
+        $product->material_type = $material;
+
+        $ref = \App\Models\ImpactFactor::where('material_type', $material)->first();
+        $product->waste_factor = $request->filled('waste_factor')
+            ? $request->waste_factor
+            : ($ref->waste_per_item ?? $product->waste_factor ?? 1.20);
+        $product->carbon_factor = $request->filled('carbon_factor')
+            ? $request->carbon_factor
+            : ($ref->carbon_per_item ?? $product->carbon_factor ?? 2.70);
         $product->description = $request->description;
         $product->quantity = $request->quantity;
         $product->in_stock = $request->has('in_stock');
@@ -122,18 +187,16 @@ class ProductController extends Controller
         }
 
         // Simpan ulang gambar galeri jika diubah
+        // Tambahkan gambar galeri baru (bisa lebih dari 1) ke galeri yang sudah ada
         if ($request->hasFile('image_gallery')) {
-            if ($product->image_gallery) {
-                foreach (json_decode($product->image_gallery) as $image) {
-                    Storage::delete('public/' . $image);
-                }
+            $galleryPaths = $product->image_gallery ?? [];
+            if (! is_array($galleryPaths)) {
+                $galleryPaths = json_decode($galleryPaths, true) ?: [];
             }
-
-            $galleryPaths = [];
             foreach ($request->file('image_gallery') as $image) {
                 $galleryPaths[] = $image->store('product_images/gallery', 'public');
             }
-            $product->image_gallery = json_encode($galleryPaths);
+            $product->image_gallery = $galleryPaths;
         }
 
         // Reset status ke pending agar perlu diverifikasi ulang
@@ -147,14 +210,15 @@ class ProductController extends Controller
     // Menghapus produk
     public function destroy($id)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::where('seller_id', Auth::guard('seller')->id())->findOrFail($id);
 
         if ($product->image_url) {
             Storage::delete('public/' . $product->image_url);
         }
 
         if ($product->image_gallery) {
-            foreach (json_decode($product->image_gallery) as $image) {
+            $gallery = is_array($product->image_gallery) ? $product->image_gallery : (json_decode($product->image_gallery, true) ?: []);
+            foreach ($gallery as $image) {
                 Storage::delete('public/' . $image);
             }
         }
@@ -164,14 +228,49 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', 'Produk berhasil dihapus.');
     }
 
+    // Hapus satu gambar dari galeri produk
+    public function deleteGalleryImage(Request $request, $id)    {
+        $product = Product::where('seller_id', Auth::guard('seller')->id())->findOrFail($id);
+
+        $data = $request->validate(['path' => ['required', 'string']]);
+
+        $gallery = is_array($product->image_gallery)
+            ? $product->image_gallery
+            : (json_decode($product->image_gallery ?? '[]', true) ?: []);
+
+        if (($key = array_search($data['path'], $gallery, true)) !== false) {
+            Storage::delete('public/' . $gallery[$key]);
+            unset($gallery[$key]);
+            $product->image_gallery = array_values($gallery);
+            $product->save();
+
+            return back()->with('success', 'Gambar galeri dihapus.');
+        }
+
+        return back()->with('error', 'Gambar tidak ditemukan.');
+    }
+
+    // Hapus gambar utama produk
+    public function deleteMainImage($id)
+    {
+        $product = Product::where('seller_id', Auth::guard('seller')->id())->findOrFail($id);
+
+        if ($product->image_url) {
+            Storage::delete('public/' . $product->image_url);
+            $product->image_url = null;
+            $product->save();
+            return back()->with('success', 'Gambar utama dihapus.');
+        }
+
+        return back()->with('error', 'Tidak ada gambar utama.');
+    }
+
     public function show($id)
     {
-        // Mengambil produk berdasarkan ID dan memuat relasi seller
-        $product = Product::with('seller')->findOrFail($id);
-
-        if (!$product) {
-            abort(404); // Jika produk tidak ditemukan
-        }
+        $product = Product::with('seller')
+            ->where('status', 'approved')
+            ->where('is_active', true)
+            ->findOrFail($id);
         
         // Mengambil data galeri gambar produk (jika ada)
         $image_gallery = json_decode($product->image_gallery, true);
@@ -193,5 +292,20 @@ class ProductController extends Controller
 
         // Mengirimkan data produk ke view dashboard.blade.php
         return view('customer.dashboard', compact('products'));
+    }
+
+    private function uniqueSlug(string $name, $ignoreId = null): string
+    {
+        $base = Str::slug($name) ?: 'produk';
+        $slug = $base;
+        $counter = 2;
+
+        while (Product::where('slug', $slug)
+            ->when($ignoreId, fn ($query) => $query->where(Product::getKeyName(), '!=', $ignoreId))
+            ->exists()) {
+            $slug = $base . '-' . $counter++;
+        }
+
+        return $slug;
     }
 }

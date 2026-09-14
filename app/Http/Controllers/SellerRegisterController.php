@@ -46,6 +46,6 @@ class SellerRegisterController extends Controller
             'status' => 'pending',
         ]);
 
-        return redirect()->route('login')->with('success', 'Registrasi berhasil!');
+        return redirect()->to(route('customer.dashboard') . '#seller-center')->with('success', 'Registrasi seller berhasil dan sedang menunggu persetujuan admin.');
     }
 }

@@ -19,12 +19,21 @@ class Product extends Model
         'price',
         'category',
         'material_type',
+        'waste_factor',
+        'carbon_factor',
         'in_stock',
         'is_active',
         'quantity',
         'image_url',
+        'image_gallery',
         'seller_id',
         'status',
+    ];
+
+    protected $casts = [
+        'waste_factor' => 'decimal:2',
+        'carbon_factor' => 'decimal:2',
+        'image_gallery' => 'array',
     ];
 
     public function images()

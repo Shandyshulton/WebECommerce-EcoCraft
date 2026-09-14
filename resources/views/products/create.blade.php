@@ -1,271 +1,213 @@
-<!DOCTYPE html>
-<html lang="en">
+@extends('seller.dashboard')
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Create Product</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-        }
+@section('breadcrumb')<a href="{{ route('products.index') }}">Katalog Produk</a><span class="current">Tambah Produk</span>@endsection
 
-        .container {
-            padding: 20px;
-            max-width: 960px;
-            margin: 0 auto;
-        }
-
-        .card {
-            border-radius: 0.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            background-color: #fff;
-            border: none;
-            margin-bottom: 50px;
-        }
-
-        .card-body {
-            padding: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .form-control {
-            border-radius: 0.375rem;
-            padding: 10px;
-            border: 1px solid #ced4da;
-            width: 100%;
-            box-sizing: border-box;
-            transition: 0.3s ease-in-out;
-        }
-
-        .form-control:focus {
-            border-color: #5bc0de;
-            box-shadow: 0 0 8px rgba(91, 188, 222, 0.5);
-            outline: none;
-        }
-
-        .btn-primary {
-            background-color: #007bff;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            color: #fff;
-        }
-
-        .btn-primary:hover {
-            background-color: #0069d9;
-        }
-
-        .form-text {
-            font-size: 0.875rem;
-            color: #6c757d;
-        }
-
-        .preview-image {
-            margin-top: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .preview-image img {
-            width: 100px;
-            height: auto;
-            border-radius: 0.25rem;
-            object-fit: cover;
-        }
-
-        .alert {
-            padding: 12px 20px;
-            margin-bottom: 20px;
-            border-radius: 0.375rem;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        /* Styling untuk dua kolom dengan ukuran berbeda */
-        .card-group {
-            display: flex;
-            gap: 40px;
-            margin-bottom: 50px;
-            flex-wrap: wrap;
-        }
-
-        .card-price {
-            flex: 0 0 35%;
-            /* Fixed 35% lebar untuk price */
-            min-width: 150px;
-        }
-
-        .card-other {
-            flex: 1;
-            /* Sisanya untuk kolom lain */
-            min-width: 100px;
-        }
-    </style>
-</head>
-
-<body>
-    @extends('seller.dashboard')
-
-    @section('content')
-    <div class="container">
-        <h1>Create Product</h1>
-        @if (session('success'))
-        <div class="alert alert-success">
-            {{ session('success') }}
+@section('content')
+<div class="seller-page seller-form">
+    <div class="seller-toolbar">
+        <div>
+            <div class="eyebrow">Katalog toko</div>
+            <h1>Tambah Produk</h1>
+            <p class="subtle mb-0">Lengkapi detail karya, media, dan faktor dampaknya.</p>
         </div>
-        @endif
-        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            <div class="card">
-                <div class="card-body">
-                    <div class="row" style="display: flex; gap: 40px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 300px;">
-                            <div class="form-group">
-                                <label for="name">Name</label>
-                                <input type="text" id="name" name="name" class="form-control" required
-                                    oninput="generateSlug()" />
-                            </div>
-                            <div class="form-group">
-                                <label for="slug">Slug</label>
-                                <input type="text" id="slug" name="slug" class="form-control" readonly required />
-                            </div>
-                            <div class="form-group">
-                                <label for="description">Description</label>
-                                <textarea id="description" name="description" class="form-control" rows="4"></textarea>
-                            </div>
-                        </div>
-                        <div style="flex: 1; min-width: 300px;">
-                            <div class="form-group">
-                                <label for="image_url">Main Image</label>
-                                <input type="file" id="image_url" name="image_url" class="form-control" required
-                                    onchange="previewMainImage(event)" />
-                                <div class="preview-image" id="mainImagePreview"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    <div class="form-group">
-                        <label for="image_gallery">Gallery Images</label>
-                        <input type="file" id="image_gallery" name="image_gallery[]" class="form-control" multiple
-                            onchange="previewGalleryImages(event)" />
-                        <small class="form-text">Select multiple images for the gallery (optional)</small>
-                        <div class="preview-image" id="galleryPreview"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card-group">
-                <div class="card card-price">
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="price">Price</label>
-                            <input type="number" id="price" name="price" class="form-control" required />
-                        </div>
-                        <div class="form-group">
-                            <label for="quantity">Quantity</label>
-                            <input type="number" id="quantity" name="quantity" class="form-control" required />
-                        </div>
-                    </div>
-                </div>
-
-
-                <div class="card card-other">
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="category">Category</label>
-                            <select id="category" name="category" class="form-control" required>
-                                <option value="">Select Category</option>
-                                <option value="Electronics Accessories">Electronics Accessories</option>
-                                <option value="Furniture">Furniture</option>
-                                <option value="Clothing & Accessories">Clothing & Accessories</option>
-                                <option value="Home Decor">Home Decor</option>
-                                <option value="Books">Books</option>
-                                <option value="Toys">Toys</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="material_type">Material Type</label>
-                            <input type="text" id="material_type" name="material_type" class="form-control" />
-                        </div>
-                        <div class="form-group">
-                            <label for="in_stock">In Stock</label>
-                            <select id="in_stock" name="in_stock" class="form-control" required>
-                                <option value="">Select Option</option>
-                                <option value="1">Yes</option>
-                                <option value="0">No</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="is_active">Is Active</label>
-                            <select id="is_active" name="is_active" class="form-control" required>
-                                <option value="">Select Option</option>
-                                <option value="1">Yes</option>
-                                <option value="0">No</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary">Create Product</button>
-        </form>
+        <a href="{{ route('products.index') }}" class="btn-icon edit"><i class="fas fa-arrow-left"></i> Kembali</a>
     </div>
 
-    <script>
-        function generateSlug() {
-            const name = document.getElementById('name').value;
-            const slug = name
-                .toLowerCase()
-                .trim()
-                .replace(/\s+/g, '-')
-                .replace(/[^\w\-]+/g, '');
-            document.getElementById('slug').value = slug;
-        }
+    @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+    @if ($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>@endif
 
-        function previewMainImage(event) {
-            const file = event.target.files[0];
-            const preview = document.getElementById('mainImagePreview');
-            preview.innerHTML = '';
-            if (file) {
-                const img = document.createElement('img');
-                img.src = URL.createObjectURL(file);
-                preview.appendChild(img);
-            }
-        }
+    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
 
-        function previewGalleryImages(event) {
-            const files = event.target.files;
-            const preview = document.getElementById('galleryPreview');
+        <div class="form-card">
+            <div class="form-card-head"><i class="fas fa-circle-info"></i> Informasi Produk</div>
+            <div class="form-grid">
+                <div class="field field-full">
+                    <label for="name">Nama produk</label>
+                    <input type="text" id="name" name="name" value="{{ old('name') }}" required oninput="generateSlug()">
+                </div>
+                <div class="field field-full">
+                    <label for="slug">Slug</label>
+                    <input type="text" id="slug" name="slug" value="{{ old('slug') }}" readonly>
+                    <small>Dibuat otomatis dari nama produk.</small>
+                </div>
+                <div class="field field-full">
+                    <label for="description">Deskripsi</label>
+                    <textarea id="description" name="description" rows="4">{{ old('description') }}</textarea>
+                </div>
+            </div>
+        </div>
 
-            Array.from(files).forEach((file) => {
-                const img = document.createElement('img');
-                img.src = URL.createObjectURL(file);
-                preview.appendChild(img);
+        <div class="form-card">
+            <div class="form-card-head"><i class="fas fa-image"></i> Media</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label for="image_url">Gambar utama</label>
+                    <input type="file" id="image_url" name="image_url" required onchange="previewMainImage(event)">
+                    <div class="preview-image" id="mainImagePreview"></div>
+                </div>
+                <div class="field">
+                    <label for="image_gallery">Galeri (opsional, bisa lebih dari 1)</label>
+                    <input type="file" id="image_gallery" name="image_gallery[]" multiple accept="image/*" onchange="previewGalleryImages(event)">
+                    <small>Tekan Ctrl/Cmd untuk memilih beberapa gambar sekaligus.</small>
+                    <div class="preview-image" id="galleryPreview"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <div class="form-card-head"><i class="fas fa-tag"></i> Harga, Stok &amp; Kategori</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label for="price_display">Harga</label>
+                    <div class="rupiah-input">
+                        <span class="rupiah-prefix">Rp</span>
+                        <input type="text" id="price_display" inputmode="numeric" value="{{ old('price') }}" placeholder="0" data-rupiah>
+                    </div>
+                    <input type="hidden" id="price" name="price" value="{{ old('price') }}" data-rupiah-value>
+                </div>
+                <div class="field">
+                    <label for="quantity">Jumlah stok</label>
+                    <input type="number" id="quantity" name="quantity" value="{{ old('quantity') }}" min="0" required>
+                </div>
+                <div class="field">
+                    <label for="category">Kategori</label>
+                    <select id="category" name="category" required>
+                        <option value="">Pilih kategori</option>
+                        @foreach(['Electronics Accessories','Furniture','Clothing & Accessories','Home Decor','Books','Toys'] as $cat)
+                            <option value="{{ $cat }}" @selected(old('category')===$cat)>{{ $cat }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="in_stock">Ketersediaan</label>
+                    <select id="in_stock" name="in_stock" required>
+                        <option value="1" @selected(old('in_stock')==='1')>Tersedia</option>
+                        <option value="0" @selected(old('in_stock')==='0')>Habis</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="is_active">Status tampil</label>
+                    <select id="is_active" name="is_active" required>
+                        <option value="1" @selected(old('is_active')==='1')>Aktif</option>
+                        <option value="0" @selected(old('is_active')==='0')>Nonaktif</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <div class="form-card-head"><i class="fas fa-leaf"></i> Dampak Lingkungan</div>
+            <div class="form-grid">
+                <div class="field">
+                    <label for="material_type">Material</label>
+                    @if($materials->isNotEmpty())
+                        <select id="material_type" name="material_type" data-material-select required>
+                            <option value="">Pilih material</option>
+                            @foreach($materials as $m)
+                                <option value="{{ $m->material_type }}" data-waste="{{ $m->waste_per_item }}" data-carbon="{{ $m->carbon_per_item }}" @selected(old('material_type')===$m->material_type)>{{ $m->material_type }}</option>
+                            @endforeach
+                            <option value="__other" @selected(old('material_type')==='__other')>Lainnya…</option>
+                        </select>
+                        <input type="text" id="material_type_other" name="material_type_other" class="mt-2" placeholder="Material lain" style="display:none">
+                    @else
+                        <input type="text" id="material_type" name="material_type" value="{{ old('material_type') }}">
+                    @endif
+                </div>
+                <div class="field">
+                    <label for="waste_factor">Faktor limbah (kg/item)</label>
+                    <input type="number" step="0.01" min="0" id="waste_factor" name="waste_factor" value="{{ old('waste_factor', '1.20') }}" data-waste-input readonly>
+                    <small>Terisi otomatis dari material yang dipilih.</small>
+                </div>
+                <div class="field">
+                    <label for="carbon_factor">Faktor karbon (kg CO₂/item)</label>
+                    <input type="number" step="0.01" min="0" id="carbon_factor" name="carbon_factor" value="{{ old('carbon_factor', '2.70') }}" data-carbon-input readonly>
+                    <small>Terisi otomatis dari material yang dipilih.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{{ route('products.index') }}" class="btn-icon edit">Batal</a>
+            <button type="submit" class="btn-brand"><i class="fas fa-plus"></i> Simpan Produk</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function(){
+        var sel = document.querySelector('[data-material-select]');
+        if (sel) {
+            var other = document.getElementById('material_type_other');
+            var wasteInput = document.querySelector('[data-waste-input]');
+            var carbonInput = document.querySelector('[data-carbon-input]');
+            sel.addEventListener('change', function(){
+                var opt = sel.options[sel.selectedIndex];
+                if (sel.value === '__other') { if (other) other.style.display = 'block'; return; }
+                if (other) other.style.display = 'none';
+                if (opt && opt.dataset.waste) wasteInput.value = opt.dataset.waste;
+                if (opt && opt.dataset.carbon) carbonInput.value = opt.dataset.carbon;
             });
         }
-    </script>
-    @endsection
-</body>
+    })();
 
-</html>
+    function generateSlug() {
+        const name = document.getElementById('name').value;
+        document.getElementById('slug').value = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
+    }
+    // Format input harga sebagai Rupiah; kirim angka murni via hidden field
+    (function(){
+        var disp = document.querySelector('[data-rupiah]');
+        var hidden = document.querySelector('[data-rupiah-value]');
+        if (!disp || !hidden) return;
+        function fmt(v){ v = (v||'').toString().replace(/\D/g,''); return v ? Number(v).toLocaleString('id-ID') : ''; }
+        function sync(){ var raw = disp.value.replace(/\D/g,''); hidden.value = raw; disp.value = fmt(disp.value); }
+        disp.value = fmt(disp.value);
+        disp.addEventListener('input', sync);
+        sync();
+    })();
+    function galleryThumb(file, onRemove) {
+        const wrap = document.createElement('div');
+        wrap.className = 'gallery-thumb';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gallery-del';
+        btn.title = 'Hapus gambar';
+        btn.innerHTML = '&times;';
+        btn.addEventListener('click', onRemove);
+        wrap.appendChild(img);
+        wrap.appendChild(btn);
+        return wrap;
+    }
+    function previewMainImage(event) {
+        const input = event.target;
+        const preview = document.getElementById('mainImagePreview');
+        preview.innerHTML = '';
+        if (!input.files[0]) return;
+        preview.appendChild(galleryThumb(input.files[0], function () {
+            input.value = '';
+            preview.innerHTML = '';
+        }));
+    }
+    function previewGalleryImages(event) {
+        const input = event.target;
+        const preview = document.getElementById('galleryPreview');
+        let files = Array.from(input.files);
+        function render() {
+            preview.innerHTML = '';
+            files.forEach((file) => {
+                preview.appendChild(galleryThumb(file, function () {
+                    files = files.filter((f) => f !== file);
+                    const dt = new DataTransfer();
+                    files.forEach((f) => dt.items.add(f));
+                    input.files = dt.files;
+                    render();
+                }));
+            });
+        }
+        render();
+    }
+</script>
+@endsection

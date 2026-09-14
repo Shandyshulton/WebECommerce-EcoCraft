@@ -6,13 +6,50 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use App\Models\Product;
+use App\Models\Order;
 
 class SellerController extends Controller
 {
     // Menampilkan dashboard seller
     public function dashboard()
     {
-        return view('seller.dashboard');
+        $sellerId = Auth::guard('seller')->id();
+
+        $productsCount = Product::where('seller_id', $sellerId)->count();
+        $activeProducts = Product::where('seller_id', $sellerId)->where('status', 'approved')->where('is_active', true)->count();
+
+        // Kelengkapan etalase = proporsi produk aktif dari total produk.
+        $completeness = $productsCount > 0
+            ? (int) round(($activeProducts / $productsCount) * 100)
+            : 0;
+
+        // Tren penjualan 6 bulan terakhir (order yang memuat produk seller ini)
+        $salesTrend = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $month = now()->startOfMonth()->subMonths($i);
+            $ordersInMonth = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
+                ->whereYear('created_at', $month->year)
+                ->whereMonth('created_at', $month->month);
+
+            $salesTrend->push([
+                'label' => $month->translatedFormat('M'),
+                'count' => (clone $ordersInMonth)->count(),
+                'revenue' => (float) (clone $ordersInMonth)->sum('total'),
+            ]);
+        }
+        $trendMaxRevenue = max(1, $salesTrend->max('revenue'));
+
+        return view('seller.overview', [
+            'seller' => Auth::guard('seller')->user(),
+            'productsCount' => $productsCount,
+            'pendingProducts' => Product::where('seller_id', $sellerId)->where('status', 'pending')->count(),
+            'activeProducts' => $activeProducts,
+            'ordersCount' => Order::whereHas('items', fn ($query) => $query->where('seller_id', $sellerId))->count(),
+            'completeness' => $completeness,
+            'salesTrend' => $salesTrend,
+            'trendMaxRevenue' => $trendMaxRevenue,
+        ]);
     }
 
     // Menampilkan profil seller (bisa dipakai untuk detail readonly)
