@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerAddress;
 use App\Models\CustomerVoucher;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\RewardService;
+use App\Services\ShipmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,10 +17,12 @@ use Illuminate\Validation\ValidationException;
 class CheckoutController extends Controller
 {
     protected RewardService $rewards;
+    protected ShipmentService $shipments;
 
-    public function __construct(RewardService $rewards)
+    public function __construct(RewardService $rewards, ShipmentService $shipments)
     {
         $this->rewards = $rewards;
+        $this->shipments = $shipments;
     }
 
     public function index()
@@ -34,6 +38,18 @@ class CheckoutController extends Controller
         $customer = Auth::guard('customer')->user();
         $subtotal = (float) $items->sum('subtotal');
 
+        $addresses = CustomerAddress::where('customer_id', $customer->getKey())
+            ->orderByDesc('is_default')
+            ->orderByDesc('id_addresses')
+            ->get();
+
+        // Belum punya alamat pengiriman: arahkan untuk menambah alamat dulu.
+        if ($addresses->isEmpty()) {
+            return redirect()
+                ->route('customer.addresses.create', ['redirect' => 'checkout'])
+                ->with('info', 'Tambahkan alamat pengiriman dulu sebelum menyelesaikan pesanan.');
+        }
+
         return view('checkout.checkout', [
             'items' => $items,
             'total' => $subtotal,
@@ -45,6 +61,7 @@ class CheckoutController extends Controller
             'coinBalance' => (int) $customer->coin_balance,
             'coinValue' => $this->rewards->coinValue(),
             'maxDiscount' => $this->rewards->maxDiscount($subtotal),
+            'addresses' => $addresses,
         ]);
     }
 
@@ -88,10 +105,13 @@ class CheckoutController extends Controller
     {
         $data = $request->validate([
             'customer_phone' => ['required', 'string', 'max:30'],
-            'shipping_address' => ['required', 'string'],
-            'shipping_city' => ['required', 'string', 'max:100'],
-            'shipping_province' => ['required', 'string', 'max:100'],
-            'shipping_postal_code' => ['required', 'string', 'max:20'],
+            'address_choice' => ['required', 'string'],
+            'address_label' => ['nullable', 'string', 'max:50'],
+            'save_address' => ['nullable', 'boolean'],
+            'shipping_address' => ['nullable', 'string'],
+            'shipping_city' => ['nullable', 'string', 'max:100'],
+            'shipping_province' => ['nullable', 'string', 'max:100'],
+            'shipping_postal_code' => ['nullable', 'string', 'max:20'],
             'shipping_method' => ['required', 'in:Reguler,Express,Sameday'],
             'payment_method' => ['required', 'in:COD,Transfer Bank,QRIS'],
             'voucher_code' => ['nullable', 'string', 'max:50'],
@@ -100,12 +120,44 @@ class CheckoutController extends Controller
         ]);
 
         $customer = Auth::guard('customer')->user();
+
+        // Alamat pengiriman: pakai alamat tersimpan, atau isi alamat baru.
+        $savedAddressId = ctype_digit((string) $data['address_choice']) ? (int) $data['address_choice'] : null;
+
+        if ($savedAddressId) {
+            $address = CustomerAddress::where('customer_id', $customer->getKey())->find($savedAddressId);
+
+            if (! $address) {
+                throw ValidationException::withMessages([
+                    'address_choice' => 'Alamat pengiriman yang dipilih tidak ditemukan.',
+                ]);
+            }
+
+            $shipping = [
+                'shipping_address' => $address->address,
+                'shipping_city' => $address->city,
+                'shipping_province' => $address->province,
+                'shipping_postal_code' => $address->postal_code,
+            ];
+        } else {
+            $shipping = $request->validate([
+                'shipping_address' => ['required', 'string'],
+                'shipping_city' => ['required', 'string', 'max:100'],
+                'shipping_province' => ['required', 'string', 'max:100'],
+                'shipping_postal_code' => ['required', 'string', 'max:20'],
+            ], [
+                'shipping_address.required' => 'Alamat lengkap wajib diisi.',
+                'shipping_city.required' => 'Kota wajib diisi.',
+                'shipping_province.required' => 'Provinsi wajib diisi.',
+                'shipping_postal_code.required' => 'Kode pos wajib diisi.',
+            ]);
+        }
         $cart = session('cart', []);
         $products = Product::whereIn('id_products', array_keys($cart))->where('status', 'approved')->where('is_active', true)->get();
 
         abort_if($products->isEmpty(), 422, 'Cart masih kosong.');
 
-        $order = DB::transaction(function () use ($data, $customer, $cart, $products) {
+        $order = DB::transaction(function () use ($data, $customer, $cart, $products, $shipping, $savedAddressId) {
             $customer = Customer::whereKey($customer->getKey())->lockForUpdate()->firstOrFail();
 
             $subtotal = (float) $products->sum(fn ($product) => $product->price * (int) $cart[$product->getKey()]);
@@ -131,10 +183,10 @@ class CheckoutController extends Controller
                 'customer_name' => $customer->name_customers,
                 'customer_email' => $customer->email,
                 'customer_phone' => $data['customer_phone'],
-                'shipping_address' => $data['shipping_address'],
-                'shipping_city' => $data['shipping_city'],
-                'shipping_province' => $data['shipping_province'],
-                'shipping_postal_code' => $data['shipping_postal_code'],
+                'shipping_address' => $shipping['shipping_address'],
+                'shipping_city' => $shipping['shipping_city'],
+                'shipping_province' => $shipping['shipping_province'],
+                'shipping_postal_code' => $shipping['shipping_postal_code'],
                 'shipping_method' => $data['shipping_method'],
                 'payment_method' => $data['payment_method'],
                 'subtotal' => $subtotal,
@@ -158,6 +210,9 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // Siapkan data pengiriman untuk tiap pengrajin di pesanan ini.
+            $this->shipments->syncForOrder($order);
+
             if ($quote['coins_used'] > 0) {
                 $this->rewards->redeemCoins($customer, $order, $quote['coins_used']);
             }
@@ -168,6 +223,23 @@ class CheckoutController extends Controller
 
             $coinsEarned = $this->rewards->earnFromOrder($customer, $order);
             $order->update(['coins_earned' => $coinsEarned]);
+
+            // Simpan alamat baru ke buku alamat bila diminta.
+            if ($savedAddressId === null && ! empty($data['save_address'])) {
+                $isFirstAddress = ! CustomerAddress::where('customer_id', $customer->getKey())->exists();
+
+                CustomerAddress::create([
+                    'customer_id' => $customer->getKey(),
+                    'label' => $data['address_label'] ?? null,
+                    'recipient_name' => $customer->name_customers,
+                    'phone' => $data['customer_phone'],
+                    'address' => $shipping['shipping_address'],
+                    'city' => $shipping['shipping_city'],
+                    'province' => $shipping['shipping_province'],
+                    'postal_code' => $shipping['shipping_postal_code'],
+                    'is_default' => $isFirstAddress,
+                ]);
+            }
 
             return $order;
         });

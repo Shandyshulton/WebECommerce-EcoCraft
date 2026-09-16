@@ -16,7 +16,12 @@ use App\Http\Controllers\TrackController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductInquiryController;
 use App\Http\Controllers\SellerInquiryController;
+use App\Http\Controllers\WarrantyClaimController;
+use App\Http\Controllers\SellerWarrantyClaimController;
+use App\Http\Controllers\SellerShipmentController;
+use App\Http\Controllers\CustomerAddressController;
 use App\Http\Controllers\ImpactFactorController;
+use App\Http\Controllers\ImpactCertificateController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\VoucherController;
 Route::get('/', function () {
@@ -31,7 +36,7 @@ Route::post('/login', [LoginController::class, 'authenticate'])->name('login.sub
 Route::post('/seller/login', [LoginController::class, 'authenticateSeller'])->name('seller.login.submit');
 Route::post('/admin/login', [LoginController::class, 'authenticateAdmin'])->name('admin.login.submit');
 
-Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('logout');
 
 # Halaman Register Customer
 Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
@@ -46,6 +51,9 @@ Route::get('/customer/dashboard', [CustomerController::class, 'dashboard'])->nam
 Route::get('/katalog', [CustomerController::class, 'catalog'])->name('catalog.index');
 Route::get('/community', [CustomerController::class, 'community'])->name('community.index');
 Route::get('/community/{story:slug}', [CustomerController::class, 'communityShow'])->name('community.show');
+Route::get('/tentang-kami', [CustomerController::class, 'about'])->name('about');
+Route::get('/kebijakan-privasi', [CustomerController::class, 'privacyPolicy'])->name('policy.privacy');
+Route::get('/ketentuan-layanan', [CustomerController::class, 'termsOfService'])->name('policy.terms');
 
 // Kirim komentar/pertanyaan pada cerita komunitas (khusus member terdaftar)
 Route::middleware(['auth:customer'])->post('/community/{story:slug}/comments', [CustomerController::class, 'storeComment'])->name('community.comments.store');
@@ -109,6 +117,12 @@ Route::middleware(['auth:seller'])->group(function () {
     Route::delete('products/{id}/gallery-image', [ProductController::class, 'deleteGalleryImage'])->name('products.gallery.delete');
     Route::delete('products/{id}/main-image', [ProductController::class, 'deleteMainImage'])->name('products.main.delete');
     Route::resource('order', OrderController::class)->except(['show']);
+
+    // Pengiriman per pengrajin (order bisa memuat produk beberapa seller).
+    Route::get('/seller/shipments', [SellerShipmentController::class, 'index'])->name('seller.shipments.index');
+    Route::get('/seller/shipments/{shipment}', [SellerShipmentController::class, 'show'])->name('seller.shipments.show');
+    Route::put('/seller/shipments/{shipment}', [SellerShipmentController::class, 'update'])->name('seller.shipments.update');
+    Route::post('/seller/shipments/{shipment}/events', [SellerShipmentController::class, 'storeEvent'])->name('seller.shipments.events.store');
 });
 
 // Katalog dan detail produk dapat dilihat guest tanpa login.
@@ -125,6 +139,21 @@ Route::middleware(['auth:customer'])->group(function () {
     Route::post('/customer/inquiries/{id}/reply', [ProductInquiryController::class, 'reply'])->name('customer.inquiries.reply');
     Route::post('/products/{product}/inquiries', [ProductInquiryController::class, 'store'])->name('customer.inquiries.store');
 
+    // Klaim garansi pengrajin
+    Route::get('/customer/claims', [WarrantyClaimController::class, 'index'])->name('customer.claims.index');
+    Route::get('/customer/claims/create', [WarrantyClaimController::class, 'create'])->name('customer.claims.create');
+    Route::post('/customer/claims', [WarrantyClaimController::class, 'store'])->name('customer.claims.store');
+    Route::get('/customer/claims/{claim}', [WarrantyClaimController::class, 'show'])->name('customer.claims.show');
+
+    // Buku alamat pengiriman
+    Route::get('/customer/addresses', [CustomerAddressController::class, 'index'])->name('customer.addresses.index');
+    Route::get('/customer/addresses/create', [CustomerAddressController::class, 'create'])->name('customer.addresses.create');
+    Route::post('/customer/addresses', [CustomerAddressController::class, 'store'])->name('customer.addresses.store');
+    Route::get('/customer/addresses/{address}/edit', [CustomerAddressController::class, 'edit'])->name('customer.addresses.edit');
+    Route::put('/customer/addresses/{address}', [CustomerAddressController::class, 'update'])->name('customer.addresses.update');
+    Route::delete('/customer/addresses/{address}', [CustomerAddressController::class, 'destroy'])->name('customer.addresses.destroy');
+    Route::post('/customer/addresses/{address}/default', [CustomerAddressController::class, 'default'])->name('customer.addresses.default');
+
 });
 
 Route::middleware(['auth:seller'])->group(function () {
@@ -137,13 +166,21 @@ Route::middleware(['auth:seller'])->group(function () {
     Route::get('/seller/inquiries', [SellerInquiryController::class, 'index'])->name('seller.inquiries.index');
     Route::get('/seller/inquiries/{id}', [SellerInquiryController::class, 'show'])->name('seller.inquiries.show');
     Route::post('/seller/inquiries/{id}/reply', [SellerInquiryController::class, 'reply'])->name('seller.inquiries.reply');
+
+    // Klaim garansi dari customer
+    Route::get('/seller/claims', [SellerWarrantyClaimController::class, 'index'])->name('seller.claims.index');
+    Route::get('/seller/claims/{claim}', [SellerWarrantyClaimController::class, 'show'])->name('seller.claims.show');
+    Route::post('/seller/claims/{claim}/respond', [SellerWarrantyClaimController::class, 'respond'])->name('seller.claims.respond');
 });
 
-Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
-Route::post('/cart/items', [CartController::class, 'store'])->name('cart.items.store');
-Route::delete('/cart/items-selected', [CartController::class, 'destroySelected'])->name('cart.items.destroySelected');
-Route::patch('/cart/items/{product}', [CartController::class, 'update'])->name('cart.items.update');
-Route::delete('/cart/items/{product}', [CartController::class, 'destroy'])->name('cart.items.destroy');
+// Keranjang hanya untuk customer yang sudah register dan login.
+Route::middleware(['auth:customer'])->group(function () {
+    Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
+    Route::post('/cart/items', [CartController::class, 'store'])->name('cart.items.store');
+    Route::delete('/cart/items-selected', [CartController::class, 'destroySelected'])->name('cart.items.destroySelected');
+    Route::patch('/cart/items/{product}', [CartController::class, 'update'])->name('cart.items.update');
+    Route::delete('/cart/items/{product}', [CartController::class, 'destroy'])->name('cart.items.destroy');
+});
 Route::middleware(['auth:customer'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
@@ -153,5 +190,8 @@ Route::middleware(['auth:customer'])->group(function () {
     // Dompet koin sirkular & voucher
     Route::get('/customer/wallet', [WalletController::class, 'index'])->name('customer.wallet');
     Route::post('/customer/wallet/claim/{voucher}', [WalletController::class, 'claim'])->name('customer.wallet.claim');
+
+    // Sertifikat dampak lingkungan (siap cetak / simpan PDF)
+    Route::get('/customer/impact-certificate', [ImpactCertificateController::class, 'show'])->name('customer.impact.certificate');
 });
 

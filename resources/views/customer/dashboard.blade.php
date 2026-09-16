@@ -7,6 +7,17 @@
 <section class="reference-hero">
     <div class="page-wrap reference-grid">
         <div>
+            <div class="mobile-quick-grid" id="quickGrid" aria-label="Pintasan cepat">
+                <a class="mqg-item" href="{{ route('catalog.index') }}"><span class="mqg-icon"><i class="fa fa-th-large"></i></span><span class="mqg-label">Katalog</span></a>
+                <a class="mqg-item" href="{{ route('login') }}"><span class="mqg-icon"><i class="fa fa-shopping-cart"></i></span><span class="mqg-label">Keranjang</span></a>
+                <a class="mqg-item" href="{{ route('login') }}"><span class="mqg-icon accent"><i class="fa fa-comments"></i></span><span class="mqg-label">Chat Seller</span></a>
+                <a class="mqg-item" href="{{ route('login') }}"><span class="mqg-icon"><i class="fa fa-truck"></i></span><span class="mqg-label">Lacak Pesanan</span></a>
+                <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#stories"><span class="mqg-icon accent"><i class="fa fa-book-open"></i></span><span class="mqg-label">Cerita</span></a>
+                <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#impact"><span class="mqg-icon"><i class="fa fa-leaf"></i></span><span class="mqg-label">Dampak</span></a>
+                <a class="mqg-item is-hidden" href="{{ route('login') }}"><span class="mqg-icon"><i class="fa fa-user"></i></span><span class="mqg-label">Akun</span></a>
+                <a class="mqg-item is-hidden" href="{{ route('seller.register.form') }}"><span class="mqg-icon accent"><i class="fa fa-store"></i></span><span class="mqg-label">Jadi Seller</span></a>
+                <button type="button" class="mqg-more" data-quick-more><i class="fa fa-th"></i> Lihat semua</button>
+            </div>
             <div class="eyebrow">Pintu masuk gaya hidup berkelanjutan</div>
             <h1>Selamat datang di EcoCraft</h1>
             <p class="welcome-note">Gerakan belanja sirkular berkelanjutan</p>
@@ -29,6 +40,18 @@
             </div>
             <div class="text-center mt-3"><a class="btn btn-outline-brand" href="{{ route('community.index') }}">Lihat semua sorotan komunitas <span aria-hidden="true">&rarr;</span></a></div>
         </div>
+        <aside class="guest-impact-panel">
+            <div class="eyebrow" style="color:var(--accent)">Dampak &amp; kepercayaan</div>
+            <h2>Belanja yang meninggalkan jejak baik</h2>
+            <p>Setiap karya di EcoCraft melewati kurasi material dan pengrajin, jadi pilihanmu ikut menekan limbah sekaligus menopang ekonomi lokal.</p>
+            <ul class="guest-impact-list">
+                <li><span class="guest-impact-icon"><i class="fa fa-recycle" aria-hidden="true"></i></span><div><strong>100% bahan berkelanjutan</strong><span>Terverifikasi adil untuk lingkungan.</span></div></li>
+                <li><span class="guest-impact-icon"><i class="fa fa-hand-holding-heart" aria-hidden="true"></i></span><div><strong>70% margin ke pengrajin</strong><span>Keadilan ekonomi UMKM Nusantara.</span></div></li>
+                <li><span class="guest-impact-icon"><i class="fa fa-box" aria-hidden="true"></i></span><div><strong>Bungkus bebas plastik</strong><span>Karton daur ulang &amp; fitosintetik.</span></div></li>
+                <li><span class="guest-impact-icon"><i class="fa fa-truck-fast" aria-hidden="true"></i></span><div><strong>Pengiriman karbon netral</strong><span>Kompensasi tiap perjalanan ke rumahmu.</span></div></li>
+            </ul>
+            <div class="guest-impact-foot"><a class="btn btn-outline-brand" href="{{ route('about') }}">Pelajari misi kami <span aria-hidden="true">&rarr;</span></a></div>
+        </aside>
     </div>
 </section>
 @else
@@ -36,7 +59,7 @@
 <section class="member-dashboard">
     <div class="member-banner mb-4">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-            <div><div class="eyebrow">Pecinta bumi · customer terverifikasi</div><h1 class="mb-2">Halo, {{ $customer->name_customers }}</h1><p class="lead mb-0">Senang melihatmu kembali. Pilihanmu membantu karya lokal dan material sirkular terus tumbuh.</p></div>
+            <div><div class="eyebrow">Pecinta bumi · customer terverifikasi</div><h1 class="mb-2"><span class="sr-only">{{ $greetings[0] ?? 'Selamat Pagi' }}, </span><span aria-hidden="true"><span class="greeting-typist" data-greeting-typist>{{ $greetings[0] ?? 'Selamat Pagi' }}</span><span data-greeting-sep>, </span></span>{{ $customer->name_customers }}</h1><p class="lead mb-0">Senang melihatmu kembali. Pilihanmu membantu karya lokal dan material sirkular terus tumbuh.</p></div>
             <a class="btn btn-brand px-4 py-2" href="#catalog">Belanja sekarang</a>
         </div>
     </div>
@@ -49,6 +72,7 @@
         <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#stories"><span class="mqg-icon accent"><i class="fa fa-book-open"></i></span><span class="mqg-label">Cerita</span></a>
         <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#impact"><span class="mqg-icon"><i class="fa fa-leaf"></i></span><span class="mqg-label">Dampak</span></a>
         <a class="mqg-item is-hidden" href="{{ route('customer.profile') }}"><span class="mqg-icon"><i class="fa fa-user"></i></span><span class="mqg-label">Akun</span></a>
+        <a class="mqg-item is-hidden" href="{{ route('customer.addresses.index') }}"><span class="mqg-icon"><i class="fa fa-location-dot"></i></span><span class="mqg-label">Alamat</span></a>
         <a class="mqg-item is-hidden" href="{{ route('seller.register.form') }}"><span class="mqg-icon accent"><i class="fa fa-store"></i></span><span class="mqg-label">Jadi Seller</span></a>
         <button type="button" class="mqg-more" data-quick-more><i class="fa fa-th"></i> Lihat semua</button>
     </div>
@@ -86,7 +110,7 @@
         </div>
     </section>
     <section id="impact" class="member-section impact-panel">
-        <div class="impact-head"><div><div class="eyebrow">Paspor jejak lingkungan terverifikasi</div><h2>Dampak Kolektif Belanja Sirkularmu</h2><p>Angka dihitung dari riwayat pesananmu menggunakan estimasi material dan emisi yang dialihkan dari setiap produk.</p></div><button class="btn btn-brand" type="button">Unduh Sertifikat Dampak</button></div>
+        <div class="impact-head"><div><div class="eyebrow">Paspor jejak lingkungan terverifikasi</div><h2>Dampak Kolektif Belanja Sirkularmu</h2><p>Angka dihitung dari riwayat pesananmu menggunakan estimasi material dan emisi yang dialihkan dari setiap produk.</p></div><a class="btn btn-brand" href="{{ route('customer.impact.certificate') }}">Unduh Sertifikat Dampak</a></div>
         <div class="impact-metrics"><div class="impact-metric"><span class="member-stat-label">Emisi karbon dihindari</span><strong>{{ number_format($impact['carbon'], 1) }} kg CO2e</strong><small>Estimasi pengurangan emisi dari pembelianmu.</small></div><div class="impact-metric"><span class="member-stat-label">Limbah padat tercegah</span><strong>{{ number_format($impact['waste'], 1) }} kg material</strong><small>Bahan bekas yang dialihkan dari TPA.</small></div><div class="impact-metric"><span class="member-stat-label">Dukungan ekonomi lokal</span><strong>{{ $impact['artisans'] }} pengrajin</strong><small>Seller yang menerima manfaat dari pesananmu.</small></div></div>
         <div class="d-flex justify-content-between small mb-2"><strong>Tren Pengurangan Limbah & Emisi</strong><span class="text-muted">■ kg sampah &nbsp; <span style="color:var(--accent)">■ kg CO2e</span></span></div><div class="chart">@foreach($impactTrend as $trend)<div><div class="chart-group"><span class="chart-bar" style="height:{{ max(3, min(100, $trend['waste'] * 8)) }}%" title="{{ $trend['waste'] }} kg"></span><span class="chart-bar terracotta" style="height:{{ max(3, min(100, $trend['carbon'] * 8)) }}%" title="{{ $trend['carbon'] }} kg CO2e"></span></div><div class="chart-label">{{ $trend['label'] }}</div></div>@endforeach</div>
     </section>
@@ -164,7 +188,7 @@
 
 @auth('customer')
 <section id="quick-actions" class="member-section">
-    <div class="quick-actions"><div class="font-weight-bold mb-2" style="grid-column:1/-1">⚡ Pintasan Layanan & Aksi Cepat</div><a class="quick-action" href="{{ route('track.track') }}"><span class="quick-action-icon">✓</span><span><strong>Klaim Garansi Pengrajin</strong><span>Garansi reparasi anyaman dan jahitan.</span></span></a><a class="quick-action" href="#impact"><span class="quick-action-icon">♻</span><span><strong>Donasi Limbah Rumah Tangga</strong><span>Kirim material bersih, dapatkan poin.</span></span></a><a class="quick-action" href="#about"><span class="quick-action-icon">?</span><span><strong>Hubungi Admin EcoCraft</strong><span>Konsultasi kurasi atau bantuan pengiriman.</span></span></a></div>
+    <div class="quick-actions"><div class="font-weight-bold mb-2" style="grid-column:1/-1">⚡ Pintasan Layanan & Aksi Cepat</div><a class="quick-action" href="{{ route('customer.claims.index') }}"><span class="quick-action-icon">✓</span><span><strong>Klaim Garansi Pengrajin</strong><span>Garansi reparasi anyaman dan jahitan.</span></span></a><a class="quick-action" href="#impact"><span class="quick-action-icon">♻</span><span><strong>Donasi Limbah Rumah Tangga</strong><span>Kirim material bersih, dapatkan poin.</span></span></a><a class="quick-action" href="#about"><span class="quick-action-icon">?</span><span><strong>Hubungi Admin EcoCraft</strong><span>Konsultasi kurasi atau bantuan pengiriman.</span></span></a></div>
 </section>
 <section id="seller-center" class="member-section seller-invite">
     <div>
@@ -192,7 +216,7 @@
     <div class="page-wrap">
         <div class="guest-section-title"><div class="eyebrow" style="color:var(--accent)">Pusat informasi</div><h2>Pertanyaan seputar berbelanja di EcoCraft</h2></div>
         <div class="guest-faq">
-            <details><summary>Apakah saya bisa berbelanja tanpa mendaftar akun terlebih dahulu?</summary><p>Bisa. Kamu dapat melihat detail produk dan menambahkan produk ke cart sebagai guest. Login atau register diperlukan saat checkout.</p></details>
+            <details><summary>Apakah saya bisa berbelanja tanpa mendaftar akun terlebih dahulu?</summary><p>Guest bisa menjelajah katalog dan melihat detail produk. Untuk menambahkan produk ke keranjang dan checkout, kamu perlu masuk atau membuat akun terlebih dahulu.</p></details>
             <details><summary>Bagaimana cara kerja voucher selamat datang?</summary><p>Voucher tersedia untuk akun customer baru sesuai kebijakan promosi yang sedang aktif.</p></details>
             <details><summary>Apakah seluruh produk terjamin aman dan higienis?</summary><p>Produk yang tampil di katalog telah melewati proses verifikasi admin dan berasal dari seller yang terdaftar.</p></details>
             <details><summary>Berapa lama estimasi pengiriman dan ke mana saja jangkauannya?</summary><p>Estimasi bergantung pada alamat, seller, dan pilihan ekspedisi yang tersedia saat checkout.</p></details>
@@ -354,5 +378,51 @@ document.querySelectorAll('[data-qty-stepper]').forEach(function (stepper) {
         input.value = Math.min(max, v + 1);
     });
 });
+
+// Sapaan daerah pada banner member: animasi ketik lalu hapus, bergantian
+(function () {
+    var el = document.querySelector('[data-greeting-typist]');
+    if (!el) return;
+    var words = @json($greetings ?? []);
+    if (!words.length) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var sep = document.querySelector('[data-greeting-sep]');
+    var wordIndex = 0;
+    var chars = words[0].length;
+    var deleting = true;
+
+    function render(text) {
+        el.textContent = text;
+        if (sep) sep.style.visibility = text ? 'visible' : 'hidden';
+    }
+
+    function tick() {
+        var word = words[wordIndex];
+        if (deleting) {
+            chars--;
+            render(word.slice(0, Math.max(0, chars)));
+            if (chars <= 0) {
+                deleting = false;
+                wordIndex = (wordIndex + 1) % words.length;
+                chars = 0;
+                setTimeout(tick, 550);
+                return;
+            }
+            setTimeout(tick, 75);
+            return;
+        }
+        chars++;
+        render(word.slice(0, chars));
+        if (chars >= word.length) {
+            deleting = true;
+            setTimeout(tick, 2200);
+            return;
+        }
+        setTimeout(tick, 150);
+    }
+
+    setTimeout(tick, 1800);
+})();
 </script>
 @endpush

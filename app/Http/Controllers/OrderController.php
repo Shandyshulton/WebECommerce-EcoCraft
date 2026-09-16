@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\RewardService;
+use App\Services\ShipmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,10 +13,12 @@ use Illuminate\Support\Facades\DB;
 class OrderController extends Controller
 {
     protected RewardService $rewards;
+    protected ShipmentService $shipments;
 
-    public function __construct(RewardService $rewards)
+    public function __construct(RewardService $rewards, ShipmentService $shipments)
     {
         $this->rewards = $rewards;
+        $this->shipments = $shipments;
     }
 
     public function index(Request $request)
@@ -90,6 +93,9 @@ class OrderController extends Controller
                 'unit_price' => $product->price,
                 'subtotal' => $subtotal,
             ]);
+
+            // Siapkan data pengiriman untuk pesanan yang dibuat manual ini.
+            $this->shipments->syncForOrder($order);
 
             return $order;
         });

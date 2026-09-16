@@ -41,4 +41,9 @@ class Seller extends Authenticatable
     {
         return $this->hasMany(Product::class);
     }
+
+    public function shipments()
+    {
+        return $this->hasMany(Shipment::class, 'seller_id', 'id_sellers');
+    }
 }

@@ -28,13 +28,11 @@
             <nav class="nav-links" aria-label="Customer navigation">
                 <a href="{{ route('customer.dashboard') }}"><i class="fa fa-home"></i><span>Home</span></a>
                 <a href="{{ route('catalog.index') }}"><i class="fa fa-th-large"></i><span>Katalog</span></a>
-                @auth('customer')
-                    <a href="{{ route('track.track') }}"><i class="fa fa-receipt"></i><span>Pembelian</span></a>
-                    <a href="{{ route('customer.wallet') }}"><i class="fa fa-coins"></i><span>Dompet</span></a>
-                @endauth
+                <a href="{{ auth('customer')->check() ? route('track.track') : route('login') }}"><i class="fa fa-receipt"></i><span>Pembelian</span></a>
+                <a href="{{ auth('customer')->check() ? route('customer.wallet') : route('login') }}"><i class="fa fa-coins"></i><span>Dompet</span></a>
                 <a href="{{ route('customer.dashboard') }}#stories"><i class="fa fa-shopping-bag"></i><span>Cerita Pengrajin</span></a>
                 <a href="{{ route('customer.dashboard') }}#impact"><i class="fa fa-leaf"></i><span>Dampak Lingkungan</span></a>
-                <a href="{{ route('customer.dashboard') }}#about"><i class="fa fa-info-circle"></i><span>Tentang Kami</span></a>
+                <a href="{{ route('about') }}"><i class="fa fa-info-circle"></i><span>Tentang Kami</span></a>
             </nav>
             <div class="nav-actions @auth('customer') auth-actions @endauth">
                 @auth('customer')
@@ -54,13 +52,17 @@
                             <div class="popover-head"><strong>{{ $navCustomer->name_customers }}</strong><small>Sahabat Pengrajin</small></div>
                             <a href="{{ route('customer.profile') }}"><i class="fa fa-user" aria-hidden="true"></i>Edit profile</a>
                             <a href="{{ route('track.track') }}"><i class="fa fa-receipt" aria-hidden="true"></i>Riwayat Pembelian</a>
+                            <a href="{{ route('customer.addresses.index') }}"><i class="fa fa-location-dot" aria-hidden="true"></i>Alamat Pengiriman</a>
                             <a href="{{ route('customer.wallet') }}"><i class="fa fa-coins" aria-hidden="true"></i>Dompet Sirkular</a>
                             <a href="{{ route('customer.inquiries.index') }}"><i class="fa fa-comments" aria-hidden="true"></i>Pertanyaan Produk</a>
+                            <a href="{{ route('customer.claims.index') }}"><i class="fa fa-shield-heart" aria-hidden="true"></i>Klaim Garansi</a>
                             <a href="{{ route('seller.register.form') }}"><i class="fa fa-shopping-bag" aria-hidden="true"></i>Jadi Seller</a>
                             <form action="{{ route('logout') }}" method="POST" class="popover-logout">@csrf<button type="submit"><i class="fa fa-right-from-bracket" aria-hidden="true"></i>Keluar</button></form>
                         </div>
                     </details>
                 @else
+                    <a class="cart-icon" href="{{ route('login') }}" aria-label="Chat seller" title="Chat seller"><i class="fa fa-comments" aria-hidden="true"></i></a>
+                    <a class="cart-icon" href="{{ route('login') }}" aria-label="Keranjang" title="Keranjang"><i class="fa fa-shopping-cart" aria-hidden="true"></i></a>
                     <a class="btn btn-outline-brand btn-sm" href="{{ route('login') }}">Masuk</a>
                     <a class="btn btn-brand btn-sm" href="{{ route('register') }}">Daftar Akun</a>
                 @endauth
@@ -72,34 +74,36 @@
         <div class="page-wrap">
             <div class="footer-grid">
                 <div><h3>EcoCraft</h3><p class="small">Karya lokal, material berkelanjutan, dan belanja yang lebih bermakna.</p></div>
-                <div><h4>Jelajahi</h4><a href="{{ route('catalog.index') }}">Katalog produk</a><a href="{{ route('customer.dashboard') }}#stories">Cerita pengrajin</a><a href="{{ route('customer.dashboard') }}#impact">Dampak lingkungan</a></div>
+                <div><h4>Jelajahi</h4><a href="{{ route('catalog.index') }}">Katalog produk</a><a href="{{ route('customer.dashboard') }}#stories">Cerita pengrajin</a><a href="{{ route('customer.dashboard') }}#impact">Dampak lingkungan</a><a href="{{ route('about') }}">Tentang kami</a></div>
                 <div><h4>Bantuan</h4><a href="{{ route('customer.dashboard') }}#faq">FAQ</a><a href="{{ route('track.track') }}">Lacak pesanan</a><a href="{{ route('login') }}">Masuk akun</a></div>
-                <div><h4>Kebijakan</h4><a href="#">Privasi</a><a href="#">Ketentuan layanan</a><a href="#">Instagram · TikTok</a></div>
+                <div><h4>Kebijakan</h4><a href="{{ route('policy.privacy') }}">Kebijakan Privasi</a><a href="{{ route('policy.terms') }}">Ketentuan Layanan</a><a href="#">Instagram · TikTok</a></div>
             </div>
             <div class="footer-bottom"><span>&copy; {{ date('Y') }} EcoCraft. Semua hak dilindungi.</span><span>Dirancang untuk konsumsi yang lebih sadar.</span></div>
         </div>
     </footer>
-    @auth('customer')
+    @php($isMember = Auth::guard('customer')->check())
+    @php($bnUnread = 0)
+    @if($isMember)
         @php($bnCustomer = Auth::guard('customer')->user())
         @php($bnUnread = \App\Models\ProductInquiryMessage::where('sender_type', 'seller')->whereNull('read_at')->whereHas('inquiry', fn ($q) => $q->where('customer_id', $bnCustomer->id_customers))->count())
-        <nav class="mobile-bottom-nav" aria-label="Navigasi utama">
-            <a class="mbn-item {{ request()->routeIs('customer.dashboard') ? 'active' : '' }}" href="{{ route('customer.dashboard') }}">
-                <i class="fa fa-home"></i><span>Beranda</span>
-            </a>
-            <a class="mbn-item {{ request()->routeIs('catalog.index') || request()->routeIs('product.show') ? 'active' : '' }}" href="{{ route('catalog.index') }}">
-                <i class="fa fa-th-large"></i><span>Katalog</span>
-            </a>
-            <a class="mbn-item {{ request()->routeIs('track.track') ? 'active' : '' }}" href="{{ route('track.track') }}">
-                <i class="fa fa-receipt"></i><span>Pembelian</span>
-            </a>
-            <a class="mbn-item {{ request()->routeIs('customer.inquiries.*') ? 'active' : '' }}" href="{{ route('customer.inquiries.index') }}">
-                <span class="mbn-icon-wrap"><i class="fa fa-comments"></i>@if($bnUnread > 0)<span class="mbn-badge">{{ $bnUnread > 9 ? '9+' : $bnUnread }}</span>@endif</span><span>Chat</span>
-            </a>
-            <a class="mbn-item {{ request()->routeIs('customer.profile') ? 'active' : '' }}" href="{{ route('customer.profile') }}">
-                <i class="fa fa-user"></i><span>Akun</span>
-            </a>
-        </nav>
-    @endauth
+    @endif
+    <nav class="mobile-bottom-nav" aria-label="Navigasi utama">
+        <a class="mbn-item {{ request()->routeIs('customer.dashboard') ? 'active' : '' }}" href="{{ route('customer.dashboard') }}">
+            <i class="fa fa-home"></i><span>Beranda</span>
+        </a>
+        <a class="mbn-item {{ request()->routeIs('catalog.index') || request()->routeIs('product.show') ? 'active' : '' }}" href="{{ route('catalog.index') }}">
+            <i class="fa fa-th-large"></i><span>Katalog</span>
+        </a>
+        <a class="mbn-item {{ request()->routeIs('track.track') ? 'active' : '' }}" href="{{ $isMember ? route('track.track') : route('login') }}">
+            <i class="fa fa-receipt"></i><span>Pembelian</span>
+        </a>
+        <a class="mbn-item {{ request()->routeIs('customer.inquiries.*') ? 'active' : '' }}" href="{{ $isMember ? route('customer.inquiries.index') : route('login') }}">
+            <span class="mbn-icon-wrap"><i class="fa fa-comments"></i>@if($bnUnread > 0)<span class="mbn-badge">{{ $bnUnread > 9 ? '9+' : $bnUnread }}</span>@endif</span><span>Chat</span>
+        </a>
+        <a class="mbn-item {{ request()->routeIs('customer.profile') ? 'active' : '' }}" href="{{ $isMember ? route('customer.profile') : route('login') }}">
+            <i class="fa fa-user"></i><span>Akun</span>
+        </a>
+    </nav>
 </div>
 @stack('scripts')
 <script>

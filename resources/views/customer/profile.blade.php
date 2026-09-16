@@ -20,6 +20,14 @@
 
         <div class="form-panel mt-3 d-flex justify-content-between align-items-center" style="gap:16px;flex-wrap:wrap">
             <div>
+                <strong style="display:block">Alamat pengiriman</strong>
+                <span class="text-muted" style="font-size:12px">Simpan beberapa alamat untuk checkout yang lebih cepat.</span>
+            </div>
+            <a class="btn btn-outline-brand" href="{{ route('customer.addresses.index') }}"><i class="fa fa-location-dot"></i> Kelola alamat</a>
+        </div>
+
+        <div class="form-panel mt-3 d-flex justify-content-between align-items-center" style="gap:16px;flex-wrap:wrap">
+            <div>
                 <strong style="display:block">Keluar dari akun</strong>
                 <span class="text-muted" style="font-size:12px">Akhiri sesi di perangkat ini.</span>
             </div>

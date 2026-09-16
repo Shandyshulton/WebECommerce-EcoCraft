@@ -24,7 +24,9 @@
                 <a class="{{ request()->routeIs('seller.dashboard') ? 'active' : '' }}" href="{{ route('seller.dashboard') }}"><i class="fas fa-grid-2"></i>Ringkasan</a>
                 <a class="{{ request()->routeIs('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}"><i class="fas fa-box-open"></i>Katalog Produk</a>
                 <a class="{{ request()->routeIs('order.*') ? 'active' : '' }}" href="{{ route('order.index') }}"><i class="fas fa-receipt"></i>Pesanan</a>
+                <a class="{{ request()->routeIs('seller.shipments.*') ? 'active' : '' }}" href="{{ route('seller.shipments.index') }}"><i class="fas fa-truck-fast"></i>Pengiriman</a>
                 <a class="{{ request()->routeIs('seller.inquiries.*') ? 'active' : '' }}" href="{{ route('seller.inquiries.index') }}"><i class="fas fa-comments"></i>Pertanyaan</a>
+                <a class="{{ request()->routeIs('seller.claims.*') ? 'active' : '' }}" href="{{ route('seller.claims.index') }}"><i class="fas fa-shield-heart"></i>Klaim Garansi</a>
             </nav>
             <div class="nav-right">
                 <span class="today" id="current-date"></span>

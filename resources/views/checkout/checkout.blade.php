@@ -2,6 +2,16 @@
 @section('title','Checkout | EcoCraft')
 @push('styles')
 <style>.checkout-page{padding:34px 0 72px}.checkout-heading h1{font:600 46px/1 'EB Garamond',serif;margin:8px 0 26px}.checkout-layout{display:grid;grid-template-columns:minmax(0,1.2fr) 360px;gap:20px}.checkout-panel,.checkout-summary{padding:24px;background:#fff;border:1px solid var(--line);border-radius:14px}.checkout-panel h2,.checkout-summary h2{font:600 27px/1 'EB Garamond',serif;margin:0 0 22px}.checkout-page .form-label{font-size:11px;font-weight:800}.checkout-page .form-control,.checkout-page .form-select{min-height:44px;border:1px solid var(--line);border-radius:8px;background:#f8faf8;font-size:12px}.checkout-page .form-control:focus,.checkout-page .form-select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(30,75,56,.12)}.checkout-summary{position:sticky;top:96px;align-self:start}.checkout-item{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}.checkout-total{display:flex;justify-content:space-between;padding-top:18px;font-size:14px}.checkout-reward{padding:14px 0;border-bottom:1px solid var(--line)}.checkout-reward .form-label{margin-bottom:6px}.checkout-reward small{color:var(--muted);font-size:11px}@media(max-width:800px){.checkout-layout{grid-template-columns:1fr}.checkout-summary{position:static}.checkout-heading h1{font-size:40px}}</style>
+<style>
+    .address-picker { display:grid; gap:10px; margin-bottom:18px; }
+    .address-option { display:flex; gap:12px; padding:13px; border:1px solid var(--line); border-radius:10px; background:#f8faf8; cursor:pointer; }
+    .address-option:has(input:checked) { border-color:var(--brand); background:#edf4ee; }
+    .address-option input { flex:0 0 auto; width:16px; height:16px; margin-top:2px; accent-color:var(--brand); cursor:pointer; }
+    .address-option strong { display:block; font-size:12.5px; }
+    .address-option small { display:block; margin-top:3px; color:var(--muted); font-size:11.5px; line-height:1.55; }
+    .save-address-check { display:flex; align-items:center; gap:10px; font-size:12.5px; font-weight:600; cursor:pointer; }
+    .save-address-check input { width:16px; height:16px; accent-color:var(--brand); cursor:pointer; }
+</style>
 @endpush
 @section('content')
 <main class="section checkout-page">
@@ -18,14 +28,43 @@
             <div class="checkout-layout">
                 <section class="checkout-panel">
                     <h2>Detail pengiriman</h2>
+
+                    @php($addressChoice = old('address_choice', $addresses->first()->id_addresses))
+
+                    <div class="address-picker">
+                        @foreach($addresses as $address)
+                            <label class="address-option">
+                                <input type="radio" name="address_choice" value="{{ $address->id_addresses }}"
+                                    data-address="{{ $address->address }}"
+                                    data-city="{{ $address->city }}"
+                                    data-province="{{ $address->province }}"
+                                    data-postal="{{ $address->postal_code }}"
+                                    @checked((string) $addressChoice === (string) $address->id_addresses)>
+                                <span>
+                                    <strong>{{ $address->labelText() }}@if($address->is_default) · Utama @endif</strong>
+                                    <small>{{ $address->recipient_name }} · {{ $address->phone }}</small>
+                                    <small>{{ $address->address }}, {{ $address->city }}, {{ $address->province }} {{ $address->postal_code }}</small>
+                                </span>
+                            </label>
+                        @endforeach
+                        <label class="address-option">
+                            <input type="radio" name="address_choice" value="new" @checked((string) $addressChoice === 'new')>
+                            <span><strong>Alamat baru</strong><small>Isi alamat pengiriman lain di bawah.</small></span>
+                        </label>
+                    </div>
+
                     <div class="row g-3">
                         <div class="col-md-6"><label class="form-label">Nama penerima</label><input class="form-control" value="{{ Auth::guard('customer')->user()->name_customers }}" readonly></div>
                         <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" value="{{ Auth::guard('customer')->user()->email }}" readonly></div>
                         <div class="col-md-6"><label class="form-label">Nomor WhatsApp</label><input class="form-control" name="customer_phone" value="{{ old('customer_phone',Auth::guard('customer')->user()->phone_number) }}" required></div>
-                        <div class="col-md-6"><label class="form-label">Kode pos</label><input class="form-control" name="shipping_postal_code" value="{{ old('shipping_postal_code') }}" required></div>
-                        <div class="col-12"><label class="form-label">Alamat lengkap</label><textarea class="form-control" name="shipping_address" rows="3" required>{{ old('shipping_address') }}</textarea></div>
-                        <div class="col-md-6"><label class="form-label">Kota</label><input class="form-control" name="shipping_city" value="{{ old('shipping_city',Auth::guard('customer')->user()->city) }}" required></div>
-                        <div class="col-md-6"><label class="form-label">Provinsi</label><input class="form-control" name="shipping_province" value="{{ old('shipping_province',Auth::guard('customer')->user()->province) }}" required></div>
+                        <div class="col-md-6" data-manual-field><label class="form-label">Kode pos</label><input class="form-control" name="shipping_postal_code" value="{{ old('shipping_postal_code') }}"></div>
+                        <div class="col-12" data-manual-field><label class="form-label">Alamat lengkap</label><textarea class="form-control" name="shipping_address" rows="3">{{ old('shipping_address') }}</textarea></div>
+                        <div class="col-md-6" data-manual-field><label class="form-label">Kota</label><input class="form-control" name="shipping_city" value="{{ old('shipping_city',Auth::guard('customer')->user()->city) }}"></div>
+                        <div class="col-md-6" data-manual-field><label class="form-label">Provinsi</label><input class="form-control" name="shipping_province" value="{{ old('shipping_province',Auth::guard('customer')->user()->province) }}"></div>
+                        <div class="col-md-6" data-manual-field><label class="form-label">Label alamat (opsional)</label><input class="form-control" name="address_label" value="{{ old('address_label') }}" placeholder="Rumah, Kantor…"></div>
+                        <div class="col-12" data-manual-field>
+                            <label class="save-address-check"><input type="checkbox" name="save_address" value="1" @checked(old('save_address'))><span>Simpan alamat ini ke daftar alamat</span></label>
+                        </div>
                         <div class="col-md-6"><label class="form-label">Metode pengiriman</label><select class="form-select" name="shipping_method" required>@foreach(['Reguler','Express','Sameday'] as $method)<option value="{{ $method }}">{{ $method }}</option>@endforeach</select></div>
                         <div class="col-md-6"><label class="form-label">Metode pembayaran</label><select class="form-select" name="payment_method" required>@foreach(['COD','Transfer Bank','QRIS'] as $method)<option value="{{ $method }}">{{ $method }}</option>@endforeach</select></div>
                     </div>
@@ -151,6 +190,42 @@
 
     if (voucherIdInput.value && codeInput) codeInput.value = '';
     refresh();
+})();
+</script>
+<script>
+(function () {
+    var fields = document.querySelectorAll('[data-manual-field]');
+    if (!fields.length) return;
+
+    var radios = document.querySelectorAll('input[name=address_choice]');
+    var addressInput = document.querySelector('textarea[name=shipping_address]');
+    var cityInput = document.querySelector('input[name=shipping_city]');
+    var provinceInput = document.querySelector('input[name=shipping_province]');
+    var postalInput = document.querySelector('input[name=shipping_postal_code]');
+    var manualInputs = [addressInput, cityInput, provinceInput, postalInput];
+
+    function apply() {
+        var checked = document.querySelector('input[name=address_choice]:checked');
+        var isNew = !checked || checked.value === 'new';
+
+        fields.forEach(function (field) { field.style.display = isNew ? '' : 'none'; });
+
+        manualInputs.forEach(function (input) {
+            if (!input) return;
+            if (isNew) { input.setAttribute('required', 'required'); }
+            else { input.removeAttribute('required'); }
+        });
+
+        if (!isNew && checked) {
+            if (addressInput) addressInput.value = checked.getAttribute('data-address') || '';
+            if (cityInput) cityInput.value = checked.getAttribute('data-city') || '';
+            if (provinceInput) provinceInput.value = checked.getAttribute('data-province') || '';
+            if (postalInput) postalInput.value = checked.getAttribute('data-postal') || '';
+        }
+    }
+
+    radios.forEach(function (radio) { radio.addEventListener('change', apply); });
+    apply();
 })();
 </script>
 @endpush

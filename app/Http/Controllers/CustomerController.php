@@ -12,10 +12,17 @@ use App\Models\Seller;
 use App\Models\Order;
 use App\Models\CommunityStory;
 use App\Models\CommunityStoryComment;
-use App\Models\CustomerVoucher;
+use App\Services\ImpactService;
 
 class CustomerController extends Controller
 {
+    protected ImpactService $impact;
+
+    public function __construct(ImpactService $impact)
+    {
+        $this->impact = $impact;
+    }
+
     /**
      * Menampilkan dashboard customer
      */
@@ -38,15 +45,13 @@ class CustomerController extends Controller
             ->withQueryString();
 
         // Total limbah dialihkan (global) dari seluruh item pesanan × faktor produk.
-        $globalWaste = \App\Models\OrderItem::with('product')->get()->sum(function ($item) {
-            return $item->quantity * (float) (optional($item->product)->waste_factor ?? 1.2);
-        });
+        $globalWaste = $this->impact->platformWaste();
 
         $stats = [
             'products' => Product::where('status', 'approved')->where('is_active', 1)->count(),
             'sellers' => Seller::where('status', 'approved')->count(),
             // 1 pohon per ~10 kg limbah dialihkan (estimasi), dihitung dari data nyata.
-            'trees' => (int) floor($globalWaste / 10),
+            'trees' => (int) floor($globalWaste / ImpactService::KG_PER_TREE),
             'orders' => 0,
             'spent' => 0,
         ];
@@ -69,50 +74,21 @@ class CustomerController extends Controller
         $impact = ['waste' => 0, 'carbon' => 0, 'artisans' => 0, 'coins' => 0, 'vouchers' => 0];
 
         if (Auth::guard('customer')->check()) {
+            $customer = Auth::guard('customer')->user();
             $orders = Order::with(['items.product', 'items.seller'])
-                ->where('customer_id', Auth::guard('customer')->id())
+                ->where('customer_id', $customer->getKey())
                 ->latest()
                 ->get();
             $activeOrders = $orders->whereNotIn('status', ['Delivered', 'Cancelled'])->take(2);
-            $quantity = $orders->sum(fn ($order) => $order->items->sum('quantity'));
 
             // Dampak dihitung dari faktor per produk (fallback default bila kosong).
-            $allItems = $orders->flatMap(fn ($order) => $order->items);
-            $wasteTotal = $allItems->sum(function ($item) {
-                $factor = optional($item->product)->waste_factor ?? 1.2;
-                return $item->quantity * (float) $factor;
-            });
-            $carbonTotal = $allItems->sum(function ($item) {
-                $factor = optional($item->product)->carbon_factor ?? 2.7;
-                return $item->quantity * (float) $factor;
-            });
-
-            $impact = [
-                'waste' => round($wasteTotal, 1),
-                'carbon' => round($carbonTotal, 1),
-                'artisans' => $allItems->pluck('seller_id')->unique()->count(),
-                // Saldo koin sirkular nyata dari dompet customer.
-                'coins' => (int) Auth::guard('customer')->user()->coin_balance,
-                // 1 pohon per ~10 kg limbah dialihkan (estimasi), non-hardcode.
-                'trees' => (int) floor($wasteTotal / 10),
-                // Voucher yang siap dipakai dari dompet customer.
-                'vouchers' => CustomerVoucher::where('customer_id', $customerId)
-                    ->where('status', 'available')
-                    ->count(),
-            ];
-            for ($month = 5; $month >= 0; $month--) {
-                $date = now()->subMonths($month);
-                $monthlyItems = $orders->filter(fn ($order) => $order->created_at->isSameMonth($date))
-                    ->flatMap(fn ($order) => $order->items);
-                $impactTrend[] = [
-                    'label' => $date->format("M 'y"),
-                    'waste' => round($monthlyItems->sum(fn ($i) => $i->quantity * (float) (optional($i->product)->waste_factor ?? 1.2)), 1),
-                    'carbon' => round($monthlyItems->sum(fn ($i) => $i->quantity * (float) (optional($i->product)->carbon_factor ?? 2.7)), 1),
-                ];
-            }
+            $impact = $this->impact->forCustomer($customer, $orders);
+            $impactTrend = $impact['trend'];
         }
 
-        return view('customer.dashboard', compact('products', 'stories', 'stats', 'orders', 'activeOrders', 'impact', 'impactTrend'));
+        $greetings = config('greetings.list');
+
+        return view('customer.dashboard', compact('products', 'stories', 'stats', 'orders', 'activeOrders', 'impact', 'impactTrend', 'greetings'));
     }
 
     /**
@@ -218,6 +194,45 @@ class CustomerController extends Controller
 
         return redirect()->to(route('community.show', $story->slug) . '#diskusi')
             ->with('success', 'Komentar berhasil dikirim.');
+    }
+
+    /**
+     * Menampilkan halaman Tentang Kami
+     */
+    public function about()
+    {
+        $stats = [
+            'products' => Product::where('status', 'approved')->where('is_active', 1)->count(),
+            'sellers' => Seller::where('status', 'approved')->count(),
+            'trees' => (int) floor($this->impact->platformWaste() / ImpactService::KG_PER_TREE),
+        ];
+
+        return view('customer.about', compact('stats'));
+    }
+
+    /**
+     * Menampilkan halaman Kebijakan Privasi
+     */
+    public function privacyPolicy()
+    {
+        return $this->legalPage('privacy');
+    }
+
+    /**
+     * Menampilkan halaman Ketentuan Layanan
+     */
+    public function termsOfService()
+    {
+        return $this->legalPage('terms');
+    }
+
+    private function legalPage(string $key)
+    {
+        $doc = config("policies.{$key}");
+
+        abort_if(empty($doc), 404);
+
+        return view('customer.legal', compact('doc'));
     }
 
     /**

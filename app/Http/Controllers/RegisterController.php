@@ -11,7 +11,7 @@ class RegisterController extends Controller
 {
     public function showRegistrationForm()
     {
-        return view('register');
+        return view('register', ['policies' => config('policies')]);
     }
 
     public function register(Request $request)
@@ -31,6 +31,9 @@ class RegisterController extends Controller
             'province' => 'required|string|max:100',
             'city' => 'required|string|max:100',
             'password' => 'required|string|min:8|max:255|confirmed',
+            'terms' => ['accepted'],
+        ], [
+            'terms.accepted' => 'Kamu harus menyetujui Ketentuan Layanan dan Kebijakan Privasi EcoCraft.',
         ]);
 
         $customer = Customer::create([

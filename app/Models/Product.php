@@ -36,11 +36,6 @@ class Product extends Model
         'image_gallery' => 'array',
     ];
 
-    public function images()
-    {
-        return $this->hasMany(ProductImage::class)->orderBy('order');
-    }
-
     public function seller()
     {
         return $this->belongsTo(Seller::class, 'seller_id', 'id_sellers');
