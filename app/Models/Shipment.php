@@ -30,12 +30,14 @@ class Shipment extends Model
     public const SOURCE_SELLER = 'seller';
     public const SOURCE_ADMIN = 'admin';
     public const SOURCE_COURIER = 'courier';
+    public const SOURCE_CUSTOMER = 'customer';
 
     protected $table = 'shipments';
     protected $primaryKey = 'id_shipments';
 
     protected $fillable = [
-        'order_id', 'seller_id', 'courier_id', 'tracking_number',
+        'order_id', 'seller_id', 'courier_id', 'courier_user_id', 'tracking_number',
+        'receiver_name', 'proof_photo',
         'status', 'note', 'shipped_at', 'delivered_at',
     ];
 
@@ -57,6 +59,28 @@ class Shipment extends Model
     public function courier()
     {
         return $this->belongsTo(Courier::class, 'courier_id', 'id_couriers');
+    }
+
+    public function deliveredBy()
+    {
+        return $this->belongsTo(CourierUser::class, 'courier_user_id', 'id_courier_users');
+    }
+
+    /**
+     * Paket yang bisa diambil kurir: pengiriman sendiri, belum ada petugasnya,
+     * dan sudah dinyatakan siap oleh pengrajin.
+     */
+    public function scopeClaimable($query)
+    {
+        return $query->whereNull('courier_user_id')
+            ->where('status', self::STATUS_PACKED)
+            ->whereHas('courier', fn ($courier) => $courier->where('is_local_delivery', true))
+            // Paket yang belum dibayar tidak masuk daftar tugas. COD tidak
+            // mewajibkan pembayaran di muka, jadi tetap boleh diantar.
+            ->whereHas('order', function ($order) {
+                $order->where('payment_status', Order::PAYMENT_PAID)
+                    ->orWhere('payment_method', Order::PAYMENT_COD);
+            });
     }
 
     public function events()
@@ -87,6 +111,14 @@ class Shipment extends Model
     public function isDelivered(): bool
     {
         return $this->status === self::STATUS_DELIVERED;
+    }
+
+    /**
+     * Paket masih di tangan pengrajin, jadi pengiriman belum diserahkan.
+     */
+    public function isAwaitingHandover(): bool
+    {
+        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_PACKED], true);
     }
 
     /**

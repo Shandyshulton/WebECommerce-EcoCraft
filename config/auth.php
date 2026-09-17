@@ -44,6 +44,13 @@ return [
             'driver' => 'session',
             'provider' => 'admins',
         ],
+
+        // Petugas kurir lokal. Terpisah dari tabel `couriers` yang menyimpan
+        // referensi jasa ekspedisi, bukan orang.
+        'courier' => [
+            'driver' => 'session',
+            'provider' => 'courier_users',
+        ],
     ],
 
     /*
@@ -71,6 +78,11 @@ return [
         'customers' => [
             'driver' => 'eloquent',
             'model' => App\Models\Customer::class,
+        ],
+
+        'courier_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\CourierUser::class,
         ],
     ],
 

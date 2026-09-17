@@ -15,6 +15,7 @@
     .shipment-resi-value{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--ink);letter-spacing:.4px}
     .shipment-copy,.shipment-track{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--brand);cursor:pointer;text-decoration:none}
     .shipment-track{background:var(--brand);border-color:var(--brand);color:#fff}
+    .shipment-hint{margin:8px 0 0;font-size:10.5px;line-height:1.6;color:var(--muted)}
     .shipment-timeline{list-style:none;margin:12px 0 0;padding:0;position:relative}
     .shipment-timeline:before{content:'';position:absolute;left:5px;top:5px;bottom:5px;width:2px;background:var(--line)}
     .shipment-timeline li{position:relative;padding:0 0 12px 22px}
@@ -24,6 +25,22 @@
     .st-status{display:block;font-size:11px;font-weight:800;color:var(--ink)}
     .st-desc{display:block;font-size:11px;color:var(--muted);margin-top:1px}
     .st-meta{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+    .shipment-proof{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f4f8f5}
+    .shipment-proof-label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+    .shipment-proof strong{display:block;font-size:12px;color:var(--ink);margin-top:2px}
+    .shipment-proof-time{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+    .shipment-proof img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+    .shipment-confirm{margin-top:10px}
+    .shipment-confirm summary{cursor:pointer;font-size:11px;font-weight:700;color:var(--brand);padding:6px 0}
+    .shipment-confirm form{display:grid;gap:8px;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff}
+    .shipment-confirm label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    .shipment-confirm input[type=text]{border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;width:100%}
+    .shipment-confirm input[type=file]{font-size:11px}
+    .shipment-confirm button{justify-self:start;border:0;border-radius:6px;background:var(--brand);color:#fff;font-size:11px;font-weight:700;padding:8px 14px;cursor:pointer}
+    /* `d-flex` berasal dari Bootstrap 5 dan tidak ada di halaman ini, jadi
+       pengaturan flex dibuat eksplisit di sini. */
+    .ohc-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .ohc-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
 </style>
 <main class="section history-page">
     <div class="page-wrap" style="max-width:920px">
@@ -40,6 +57,8 @@
         </div>
 
         @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+        @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+        @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
         <div class="history-stats">
             <div class="history-stat"><span class="hs-label">Total pesanan</span><strong>{{ $stats['total'] }}</strong></div>
@@ -56,7 +75,10 @@
                         <strong class="ohc-number">#{{ $order->order_number }}</strong>
                         <span class="ohc-date">{{ $order->created_at->translatedFormat('d M Y, H:i') }}</span>
                     </div>
-                    <span class="badge-status {{ $statusClass }}">{{ $order->status }}</span>
+                    <div class="ohc-badges">
+                        <span class="badge-status {{ $order->paymentClass() }}">{{ $order->paymentLabel() }}</span>
+                        <span class="badge-status {{ $statusClass }}">{{ $order->status }}</span>
+                    </div>
                 </div>
 
                 <div class="ohc-items">
@@ -93,16 +115,50 @@
                                         <strong class="shipment-resi-value">{{ $shipment->tracking_number }}</strong>
                                         <button type="button" class="shipment-copy" data-resi="{{ $shipment->tracking_number }}">Salin</button>
                                         @if($shipment->trackingUrl())
-                                            <a class="shipment-track" href="{{ $shipment->trackingUrl() }}" target="_blank" rel="noopener">
+                                            <a class="shipment-track" href="{{ $shipment->trackingUrl() }}" target="_blank" rel="noopener" data-resi="{{ $shipment->tracking_number }}">
                                                 Lacak di {{ $shipment->courier?->name }}
                                             </a>
                                         @endif
                                     </div>
+                                    <p class="shipment-hint">Situs ekspedisi tidak menerima nomor resi lewat tautan, jadi resinya otomatis tersalin — tinggal tempel di kolom pencarian.</p>
+                                @endif
+
+                                @if($shipment->isDelivered())
+                                    <div class="shipment-proof">
+                                        <div>
+                                            <span class="shipment-proof-label">Diterima oleh</span>
+                                            <strong>{{ $shipment->receiver_name ?: 'Penerima' }}</strong>
+                                            @if($shipment->delivered_at)
+                                                <span class="shipment-proof-time">{{ $shipment->delivered_at->translatedFormat('d M Y, H:i') }}</span>
+                                            @endif
+                                        </div>
+                                        @if($shipment->proof_photo)
+                                            <a href="{{ asset('storage/'.$shipment->proof_photo) }}" data-lightbox-trigger data-alt="Bukti penerimaan paket">
+                                                <img src="{{ asset('storage/'.$shipment->proof_photo) }}" alt="Bukti penerimaan paket">
+                                            </a>
+                                        @endif
+                                    </div>
+                                @elseif(in_array($shipment->status, ['Shipped', 'In Transit'], true))
+                                    <details class="shipment-confirm">
+                                        <summary>Paket sudah saya terima</summary>
+                                        <form action="{{ route('customer.shipments.confirm', $shipment) }}" method="POST" enctype="multipart/form-data">
+                                            @csrf
+                                            <div>
+                                                <label for="receiver-{{ $shipment->id_shipments }}">Nama penerima</label>
+                                                <input id="receiver-{{ $shipment->id_shipments }}" type="text" name="receiver_name" value="{{ old('receiver_name', Auth::guard('customer')->user()->name_customers) }}" required>
+                                            </div>
+                                            <div>
+                                                <label for="photo-{{ $shipment->id_shipments }}">Foto bukti (opsional)</label>
+                                                <input id="photo-{{ $shipment->id_shipments }}" type="file" name="proof_photo" accept="image/*">
+                                            </div>
+                                            <button type="submit">Konfirmasi diterima</button>
+                                        </form>
+                                    </details>
                                 @endif
 
                                 @if($shipment->events->isNotEmpty())
                                     <ul class="shipment-timeline">
-                                        @foreach($shipment->events as $event)
+                                        @foreach($shipment->events->reverse() as $event)
                                             <li>
                                                 <span class="st-status">{{ $event->status }}</span>
                                                 <span class="st-desc">{{ $event->description }}</span>
@@ -120,7 +176,10 @@
 
                 <div class="ohc-foot">
                     <span class="text-muted small">{{ $order->shipping_method ?? '—' }} · {{ $order->payment_method ?? '—' }}</span>
-                    <div class="d-flex align-items-center" style="gap:12px;flex-wrap:wrap;justify-content:flex-end">
+                    <div class="ohc-actions">
+                        @if($order->requiresPayment() && ! $order->isPaid())
+                            <a class="btn btn-sm btn-brand" href="{{ route('payment.show', $order) }}"><i class="fa fa-credit-card"></i> Bayar sekarang</a>
+                        @endif
                         @if(in_array($order->status, \App\Models\WarrantyClaim::ELIGIBLE_ORDER_STATUSES, true))
                             <a class="btn btn-sm btn-outline-brand" href="{{ route('customer.claims.create', ['order' => $order->id_orders]) }}"><i class="fa fa-shield-heart"></i> Klaim garansi</a>
                         @endif
@@ -150,5 +209,17 @@
             }
         });
     });
+
+    // Situs ekspedisi tidak bisa menerima nomor resi lewat URL, jadi resinya
+    // disalin lebih dulu agar pembeli tinggal menempelkannya.
+    document.querySelectorAll('.shipment-track').forEach((link) => {
+        link.addEventListener('click', () => {
+            if (link.dataset.resi && navigator.clipboard) {
+                navigator.clipboard.writeText(link.dataset.resi).catch(() => {});
+            }
+        });
+    });
 </script>
+
+@include('partials.image-lightbox')
 @endsection

@@ -11,11 +11,36 @@ html { scroll-behavior:smooth; scroll-padding-top:86px; }
 body { margin:0; color:var(--ink); background:var(--canvas); font-family:'Plus Jakarta Sans',system-ui,sans-serif; }
 a { color:inherit; text-decoration:none; }
 a:hover, a:focus { text-decoration:none; }
+/* ===== Select kustom =====
+   `select:not([multiple])` dipakai supaya spesifisitasnya (0,1,1) mengalahkan
+   `.form-select` bawaan Bootstrap (0,1,0). Dengan selector `select` biasa,
+   dropdown yang memakai class Bootstrap tetap memakai gaya bawaannya.
+   Yang bisa diganti hanya kotak tertutupnya; daftar pilihan saat dibuka
+   digambar sistem operasi dan tidak bisa dijangkau CSS. */
+select:not([multiple]) {
+    appearance:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%231e4b38' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    background-size:14px;
+    /* Padding kiri eksplisit: tanpa ini teks pilihan menempel ke tepi kiri. */
+    padding:10px 38px 10px 12px;
+    cursor:pointer;
+}
+select::-ms-expand { display:none; }
+/* Sengaja tidak ada aturan `option { background; color }`: memaksa warnanya
+   membuat sorotan hover bawaan daftar pilihan tertimpa, sehingga pilihan yang
+   sedang disorot justru tidak terlihat. */
+
 .customer-shell { min-height:100vh; }
 .customer-nav { position:sticky; top:0; z-index:20; background:rgba(251,249,245,.92); border-bottom:1px solid var(--line); backdrop-filter:blur(12px); }
 .customer-nav-inner { width:min(1280px,calc(100% - 64px)); min-height:72px; margin:auto; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:28px; }
 .brand { display:flex; align-items:center; gap:10px; color:var(--brand); font-weight:800; font-size:20px; white-space:nowrap; }
-.brand img { width:170px; height:54px; object-fit:contain; object-position:left center; }
+/* `width:auto` — rasio logo 2:1, jadi kotak fixed-width hanya menyisakan ruang
+   kosong di kanan yang membuat jarak ke menu terlihat acak. */
+.brand img { width:auto; height:54px; object-fit:contain; object-position:left center; }
 .nav-links { display:flex; align-items:center; justify-content:center; gap:6px; color:var(--muted); font-size:12px; font-weight:600; }
 .nav-links a { padding:8px 11px; border-radius:999px; white-space:nowrap; }
 .nav-links a:hover, .nav-links a.active { color:var(--brand); background:#edf4ee; }
@@ -31,7 +56,6 @@ a:hover, a:focus { text-decoration:none; }
 .popover-head { padding:10px 12px 9px; margin-bottom:6px; border-bottom:1px solid var(--line); }
 .popover-head strong { display:block; font-size:12.5px; }
 .popover-head small { color:var(--accent); font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
-.mobile-menu-toggle { display:none; width:36px; height:36px; padding:0; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--brand); font-size:18px; cursor:pointer; }
 .mobile-nav-only { display:none; }
 .page-wrap { width:min(1280px,calc(100% - 64px)); margin:auto; }
 .customer-main { min-height:calc(100vh - 70px); }
@@ -77,36 +101,67 @@ a:hover, a:focus { text-decoration:none; }
 .community-row-head { display:flex; justify-content:space-between; align-items:end; gap:16px; margin-bottom:14px; }
 .community-row-head h2 { margin:0; font:600 28px/1.15 'EB Garamond',Georgia,serif; }
 .community-row-hint { color:var(--muted); font-size:11px; white-space:nowrap; }
-.community-row-track { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none; padding:4px 2px 12px; }
+/* Rel cerita: slider geser dengan snap. Kartu yang paling dekat tepi awal rel
+   tampil penuh, kartu berikutnya mengecil dan meredup (lihat blok animasi di
+   bawah); tepi relnya dibuat memudar supaya tidak terpotong kaku. */
+.community-row-track {
+    display:flex; gap:16px; padding:14px 2px 16px;
+    overflow-x:auto; overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity; scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);
+}
 .community-row-track::-webkit-scrollbar { display:none; }
-.community-story-card { flex:0 0 300px; min-width:0; display:flex; flex-direction:column; scroll-snap-align:start; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:0 8px 24px -4px rgba(27,37,32,.08); transition:transform .2s ease, box-shadow .2s ease; }
-.community-story-card:hover { transform:translateY(-3px); box-shadow:0 14px 30px -6px rgba(27,37,32,.14); }
-.community-story-card.is-hidden { display:none; }
+.community-story-card { flex:0 0 300px; min-width:0; display:flex; flex-direction:column; scroll-snap-align:start; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:0 8px 24px -4px rgba(27,37,32,.08); transition:box-shadow .2s ease; }
 .community-story-card-image { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; background:var(--surface); }
 .community-story-card-body { display:flex; flex-direction:column; flex:1; padding:14px 16px 16px; }
 .community-story-card-body h3 { margin:3px 0 6px; font:600 18px/1.25 'EB Garamond',Georgia,serif; }
 .community-story-card-body p { flex:1; margin:0 0 10px; color:var(--muted); font-size:11px; line-height:1.55; }
 .community-story-card-body a { color:var(--brand); font-size:11px; font-weight:700; }
-.story-row-more { flex:0 0 190px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:16px; border:1px dashed var(--line); border-radius:16px; background:transparent; color:var(--brand); font:700 13px 'Plus Jakarta Sans'; cursor:pointer; scroll-snap-align:start; }
-.story-row-more span { font-size:20px; line-height:1; }
-.story-row-more:hover { border-color:var(--brand); background:#edf4ee; }
 @media (max-width:760px) {
-    .community-row-track { width:calc(100vw - 24px); margin-right:-12px; padding-right:12px; }
     .community-story-card { flex-basis:min(78vw,300px); }
     .community-row-head h2 { font-size:23px; }
-    .story-row-more { flex-basis:56vw; }
 }
 .community-highlight { display:grid; grid-template-columns:145px 1fr; gap:16px; align-items:center; padding:16px; border-radius:12px; background:var(--surface); }
-.community-highlights-grid { display:flex; gap:14px; margin-top:16px; padding-bottom:8px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:thin; }
+.community-highlights-grid {
+    display:flex; gap:14px; margin-top:16px; padding-bottom:8px;
+    overflow-x:auto; overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity; scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 22px,#000 calc(100% - 22px),transparent 100%);
+}
+.community-highlights-grid::-webkit-scrollbar { display:none; }
 .community-highlights-grid .community-highlight { flex:0 0 min(480px,86vw); margin:0!important; min-width:0; scroll-snap-align:start; }
 .community-page-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
 .community-page-grid .community-highlight { display:block; padding:10px; }
 .community-page-grid .community-highlight-image { min-height:104px; margin-bottom:10px; }
 .community-page-grid .community-highlight h3 { font-size:15px; line-height:1.2; overflow-wrap:anywhere; }
 .community-page-grid .community-highlight p { font-size:10px; line-height:1.45; }
-.community-story-card-link { display:block; }
+.community-story-card-link { display:block; overflow:hidden; }
 .community-highlight-image { min-height:126px; display:block; border-radius:8px; background:url('../images/collection/banner welcome.png') center/cover; }
 .community-highlight h3 { margin:4px 0 6px; font-size:17px; }.community-highlight p { color:var(--muted); font-size:11px; line-height:1.55; margin:0 0 7px; }.community-highlight a { color:var(--brand); font-size:11px; font-weight:700; }
+
+/* ===== Animasi slider komunitas: kartu terdepan tampil paling besar =====
+   `--rail-focus` diisi oleh JS saat rel digeser: 1 untuk kartu yang berada di
+   tepi awal rel, mendekati 0 untuk kartu yang makin jauh. Jadi kartu yang
+   sedang "di depan" membesar dan menajam, sisanya mengecil dan meredup.
+   Seluruh gerakannya berada di dalam `prefers-reduced-motion: no-preference`,
+   jadi pengguna yang meminta gerakan minimal melihat semua kartu sama besar. */
+@media (prefers-reduced-motion: no-preference) {
+    .community-story-card,
+    .community-highlights-grid .community-highlight {
+        transform:scale(calc(.94 + .06 * var(--rail-focus,1)));
+        opacity:calc(.55 + .45 * var(--rail-focus,1));
+    }
+}
+/* Hover hanya di perangkat berkursor; sentuhan tidak kehilangan makna. */
+@media (hover:hover) and (prefers-reduced-motion: no-preference) {
+    .community-story-card:hover { transform:translateY(-3px) scale(calc(.94 + .06 * var(--rail-focus,1))); box-shadow:0 14px 30px -6px rgba(27,37,32,.14); }
+    .community-story-card:hover .community-story-card-link img { transform:scale(1.06); }
+    .community-story-card:hover .community-story-card-body > a span { transform:translateX(4px); }
+}
+.community-story-card-link img { transition:transform .5s cubic-bezier(.22,.61,.36,1); }
+.community-story-card-body > a span { display:inline-block; transition:transform .2s ease; }
 .auth-tabs { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; margin-bottom:18px; background:var(--surface); border-radius:8px; }
 .auth-tabs button { border:0; border-radius:6px; padding:9px 8px; background:transparent; color:var(--muted); font:600 12px 'Plus Jakarta Sans'; cursor:pointer; }
 .auth-tabs button.active { background:#fff; color:var(--brand); box-shadow:0 2px 6px rgba(27,37,32,.08); }
@@ -213,10 +268,13 @@ h2 { font-size:clamp(28px,3vw,40px); margin:0 0 10px; }
     .card-buy-actions .btn { flex:1 1 0; min-width:0; padding:7px 6px; font-size:10.5px; }
     .card-add-btn i, .card-buy-btn i { margin-right:4px; }
 }
-/* Sangat sempit: tampilkan ikon saja pada tombol aksi (teks disembunyikan) */
+/* Sangat sempit: tampilkan ikon saja pada tombol aksi (teks disembunyikan).
+   Prefiks `.product-card` membuat aturan ini menang atas
+   `.product-card .btn{font-size:12px}` di blok max-width:640px yang letaknya
+   lebih bawah di berkas ini — tanpa itu label "Tambah" terpotong di <=430px. */
 @media (max-width:430px) {
-    .card-buy-actions .btn { padding:8px 6px; font-size:0; }
-    .card-add-btn i, .card-buy-btn i { margin-right:0; font-size:13px; }
+    .product-card .card-buy-actions .btn { padding:8px 6px; font-size:0; }
+    .product-card .card-add-btn i, .product-card .card-buy-btn i { margin-right:0; font-size:13px; }
 }
 .qty-stepper { display:inline-flex; align-items:center; flex:0 0 auto; border:1px solid var(--line); border-radius:999px; background:#fff; }
 .qty-btn { flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:30px; height:32px; border:0; background:transparent; color:var(--brand); font-size:17px; font-weight:800; line-height:1; cursor:pointer; }
@@ -343,19 +401,24 @@ h2 { font-size:clamp(28px,3vw,40px); margin:0 0 10px; }
 .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:#fff; }
 .table-wrap table { min-width:700px; margin:0; }
 
-/* ===== Pintasan cepat (mobile) ===== */
-.mobile-quick-grid { display:none; }
+/* ===== Pintasan cepat (di bawah header, hanya di bawah desktop) ===== */
+.quick-nav { display:none; }
 
 /* ===== Bottom navigation (mobile only, customer login) ===== */
 .mobile-bottom-nav { display:none; }
 
 @media (min-width:1000px) { .member-layout { display:grid; grid-template-columns:248px minmax(0,1fr); } .member-sidebar { display:flex; flex-direction:column; justify-content:space-between; padding:24px 16px; background:var(--surface); border-right:1px solid var(--line); } .member-content { width:min(1280px,calc(100% - 64px)); } }
-@media (max-width:1100px) { .community-page-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .hero-grid, .reference-grid { grid-template-columns:1fr; } .hero-art { min-height:230px; } .member-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .guest-benefit-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+/* ===== Grid dua kolom jadi satu kolom di bawah desktop =====
+   `minmax(0,1fr)` — bukan `1fr` — supaya kolom tidak dipaksa melebar oleh
+   min-content isinya. Sorotan komunitas (`.community-highlights-grid`) di
+   dalam kolom itu punya min-content besar, dan dengan `1fr` kolomnya ikut
+   membengkak sampai ±3900px sehingga seluruh halaman jadi bisa di-scroll
+   horizontal pada rentang 761–1100px. */
+@media (max-width:1100px) { .community-page-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .hero-grid, .reference-grid { grid-template-columns:minmax(0,1fr); } .hero-art { min-height:230px; } .member-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .guest-benefit-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:640px) {
     .customer-nav-inner, .page-wrap, .member-content { width:min(100% - 24px,1280px); }
     .customer-nav-inner { min-height:62px; gap:10px; flex-wrap:wrap; padding:9px 0; }
     .brand { font-size:17px; margin-right:auto; }
-    .brand img { width:32px; height:32px; }
     .nav-actions .btn { padding:7px 9px; font-size:12px; }
     .account-chip span { display:none; }
     .hero { padding:48px 0 36px; }
@@ -393,25 +456,82 @@ h2 { font-size:clamp(28px,3vw,40px); margin:0 0 10px; }
 .profile-popover .popover-logout button{display:flex !important;align-items:center;gap:10px;width:100%;padding:10px;border:0;border-radius:7px;background:transparent;color:#a53c27;font:700 12px 'Plus Jakarta Sans';text-align:left;cursor:pointer}
 .profile-popover .popover-logout button:hover{background:#fdece7}.profile-popover a:hover,.profile-popover button:hover{background:#edf4ee}.profile-popover form{margin:0}
 
+/* ===== Pintasan cepat: menu utama keluar dari navbar di bawah desktop (<=1184px) =====
+   Menu baris di navbar tidak bisa menyusut (labelnya nowrap), jadi di bawah
+   desktop menunya dipindah seluruhnya ke kartu pintasan di bawah navbar —
+   bukan lagi dipaksa jadi ikon saja di dalam navbar.
+   1184px adalah batas desktop untuk header ini: baris menu baru muat penuh
+   mulai 1185px. Tamu (belum login) punya dua tombol "Masuk"/"Daftar Akun"
+   yang membuat header ~146px lebih lebar, jadi ambangnya ditentukan oleh
+   keadaan tamu tersebut. */
+@media (max-width:1184px){
+    .customer-nav { position:static; }
+    .customer-nav-inner { display:flex; flex-wrap:wrap; min-height:0; gap:10px; padding:12px 0 0; }
+    .nav-actions { order:1; margin-left:auto; }
+
+    /* Menu baris di header diganti pintasan cepat di bawah header. */
+    .nav-links { display:none; }
+
+    /* Pintasan cepat: seluruh menu dalam satu kartu, ikon di dalam kotak
+       berwarna dengan label di bawahnya (pola yang sama dengan grid pintasan
+       mobile sebelumnya). */
+    .quick-nav {
+        display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:14px 6px; padding:18px 12px; margin:14px auto 18px;
+        width:min(1280px,calc(100% - 64px));
+        background:#fff; border:1px solid var(--line); border-radius:16px;
+    }
+    .quick-nav a {
+        display:flex; align-items:center; flex-direction:column; gap:7px;
+        padding:8px 4px; border:1px solid transparent; border-radius:12px;
+        font-size:10.5px; font-weight:600; line-height:1.2; text-align:center; white-space:normal;
+    }
+    .quick-nav a i {
+        display:grid; place-items:center;
+        width:44px; height:44px; border-radius:14px;
+        background:#c6ebd7; color:var(--brand); font-size:18px;
+    }
+    /* Warna latar literal, bukan var(--soft): variabel itu tidak didefinisikan
+       di :root berkas ini (hanya ada di CSS seller/admin). */
+    .quick-nav a:hover, .quick-nav a.active { border-color:#c9dfce; background:#edf4ee; color:var(--brand); }
+    .quick-nav a.active i { background:var(--brand); color:#fff; }
+
+    /* Menu tambahan disembunyikan sampai "Muat lebih banyak" ditekan. */
+    .quick-nav a.is-hidden { display:none; }
+    .quick-nav-more {
+        grid-column:1/-1; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+        margin-top:2px; padding:11px; border:1px dashed var(--line); border-radius:12px;
+        background:transparent; color:var(--brand); font:700 12px 'Plus Jakarta Sans'; cursor:pointer;
+    }
+    .quick-nav-more:hover { border-color:var(--brand); background:#edf4ee; }
+}
+/* Di layar yang lebih lebar, empat pintasan cukup dalam satu baris. */
+@media (min-width:561px) and (max-width:900px){
+    .quick-nav { grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
+/* Menjelang desktop, enam pintasan per baris supaya kartunya tidak terlalu tinggi. */
+@media (min-width:901px) and (max-width:1184px){
+    .quick-nav { grid-template-columns:repeat(6,minmax(0,1fr)); }
+}
+
 /* ===== Mobile navbar & navigasi bawah (<=760px) ===== */
 @media (max-width:760px){
     .customer-nav { position:static; }
-    .customer-nav-inner { width:calc(100% - 24px); min-height:0; display:flex; flex-wrap:wrap; gap:0; padding:10px 12px 0; }
+    /* Lebar tidak diubah di sini: inset header harus mengikuti `.page-wrap`
+       (32px di 641–760px, 12px di <=640px dari blok max-width:640px), jadi
+       logo dan isi header tetap rata dengan konten di bawahnya.
+       Padding samping 0 karena inset itu sudah datang dari `width`. */
+    .customer-nav-inner { min-height:0; display:flex; flex-wrap:wrap; gap:0; padding:10px 0 0; }
     .brand { margin-left:0; margin-right:auto; font-size:17px; }
-    .brand img { width:150px; height:58px; margin-left:0; transform:none; }
+    .brand img { width:auto; height:40px; margin-left:0; transform:none; }
     .brand-copy small { display:none; }
     .reference-hero, .customer-main, .page-wrap { max-width:100%; overflow-x:hidden; }
-    .community-highlights-grid { width:calc(100vw - 24px); margin-right:-12px; padding-right:12px; }
     .community-highlights-grid .community-highlight { flex-basis:calc(100vw - 36px); grid-template-columns:1fr; }
     .community-page-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
     .community-page-grid .community-highlight { grid-template-columns:1fr; padding:7px; }
     .community-page-grid .community-highlight-image { min-height:76px; margin-bottom:7px; }
     .community-page-grid .community-highlight h3 { font-size:11px; }
     .community-page-grid .community-highlight p { font-size:9px; line-height:1.35; }
-
-    /* A: hilangkan menu chip/slider di bawah search bar — navigasi lewat bottom-nav & quick-grid */
-    .mobile-menu-toggle { display:none !important; }
-    .nav-links { display:none !important; }
 
     .nav-actions { order:1; margin-left:auto; gap:6px; }
     .mobile-search { display:flex; flex:1 1 100%; order:2; align-items:center; gap:8px; margin:10px 0 8px; padding:0 12px; height:38px; border:1px solid var(--line); border-radius:8px; background:#fff; }
@@ -431,20 +551,6 @@ h2 { font-size:clamp(28px,3vw,40px); margin:0 0 10px; }
     .customer-profile-menu summary .account-chip img { width:32px; height:32px; }
     .customer-profile-menu summary { border:0; }
 
-    /* Pintasan cepat (grid ikon) */
-    .mobile-quick-grid {
-        display:grid; grid-template-columns:repeat(4,1fr); gap:14px 6px;
-        margin:0 0 22px; padding:18px 12px; background:#fff;
-        border:1px solid var(--line); border-radius:16px;
-    }
-    .mqg-item { display:flex; flex-direction:column; align-items:center; gap:7px; text-decoration:none; color:var(--ink); }
-    .mqg-item.is-hidden { display:none; }
-    .mqg-icon { width:52px; height:52px; display:grid; place-items:center; border-radius:16px; background:#c6ebd7; color:var(--brand); font-size:20px; }
-    .mqg-icon.accent { background:#ffdbd0; color:var(--accent); }
-    .mqg-label { font-size:10.5px; font-weight:600; text-align:center; line-height:1.2; }
-    .mqg-more { grid-column:1/-1; display:inline-flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; padding:10px; border:1px dashed var(--line); border-radius:12px; background:transparent; color:var(--brand); font:700 12px 'Plus Jakarta Sans'; cursor:pointer; }
-    .mqg-more:hover { border-color:var(--brand); background:#edf4ee; }
-
     /* Bottom navigation */
     .mobile-bottom-nav {
         display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60;
@@ -459,4 +565,9 @@ h2 { font-size:clamp(28px,3vw,40px); margin:0 0 10px; }
     .mbn-icon-wrap { position:relative; display:inline-flex; }
     .mbn-badge { position:absolute; top:-6px; right:-9px; min-width:15px; height:15px; padding:0 4px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; background:var(--accent); color:#fff; font-size:8px; font-weight:800; line-height:1; box-shadow:0 0 0 2px #fff; }
     body { padding-bottom:64px; }
+}
+/* Di ponsel sempit inset ikut menyusut seperti `.page-wrap` (12px), sedangkan
+   di 641–760px kartu pintasan tetap memakai inset 32px bawaan. */
+@media (max-width:640px) {
+    .quick-nav { width:calc(100% - 24px); }
 }

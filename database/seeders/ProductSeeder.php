@@ -34,24 +34,24 @@ class ProductSeeder extends Seeder
             ]);
         }
 
-        // [nama, deskripsi, harga, kategori, material, file gambar koleksi]
+        // [nama, deskripsi, harga, kategori, material, file gambar utama, file galeri tambahan]
         $products = [
-            ['Meja Kopi Kayu Resik', 'Meja kopi dari potongan kayu jati pilihan, dirakit tangan oleh pengrajin Jepara.', 875000, 'Furniture', 'kayu', 'table-banner.jpg'],
-            ['Rak Dinding Rotan Cirebon', 'Rak dinding anyaman rotan kering alami, cocok untuk dekorasi ruang tamu berkarakter.', 345000, 'Home Decor', 'rotan', 'arrivals2.png'],
-            ['Tas Anyaman Mendong', 'Tas tangan anyaman serat mendong yang ringan, kuat, dan hangat dipandang.', 189000, 'Clothing & Accessories', 'anyaman', 'arrivals1.png'],
-            ['Lampu Gantung Bambu', 'Lampu gantung dari bambu pilihan dengan pola anyaman terbuka yang hangat.', 420000, 'Home Decor', 'bambu', 'arrivals4.png'],
-            ['Vas Bunga Tanah Liat', 'Vas keramik tanah liat Kasongan dengan glazur alami dari abu dan tanah lokal.', 185000, 'Home Decor', 'keramik', 'arrivals5.png'],
-            ['Taplak Tenun Pesisir', 'Taplak dari sisa kain tenun Pekalongan, dijahit ulang menjadi tekstil rumah yang tahan lama.', 260000, 'Home Decor', 'tekstil', 'arrivals3.png'],
-            ['Sofa Kayu Pulih', 'Sofa santai dari kayu bekas yang dipulihkan, dengan bantal tenun yang dapat dilepas.', 2450000, 'Furniture', 'kayu', 'sofa-collection-banner.jpg'],
-            ['Lampu Sendok Plastik Daur Ulang', 'Lampu meja dari sendok plastik bekas yang dipilah dan dirakit menjadi karya artistik.', 275000, 'Home Decor', 'daur ulang', 'plastic-spoon-lamp.jpg'],
-            ['Tas Kemasan Kopi Daur Ulang', 'Tas jinjing dari kemasan kopi bekas yang dibersihkan dan dijahit ulang.', 155000, 'Clothing & Accessories', 'daur ulang', 'Tas Kemasan Kopi.jpg'],
-            ['Hiasan Perahu Botol', 'Hiasan kapal dari botol plastik bekas, hadiah ramah lingkungan yang penuh cerita.', 95000, 'Toys', 'daur ulang', 'perahu-botol.png'],
+            ['Meja Kopi Kayu Resik', 'Meja kopi dari potongan kayu jati pilihan, dirakit tangan oleh pengrajin Jepara.', 875000, 'Furniture', 'kayu', 'table-banner.jpg', ['sofa-collection-banner.jpg', 'plastic-spoon-lamp.jpg']],
+            ['Rak Dinding Rotan Cirebon', 'Rak dinding anyaman rotan kering alami, cocok untuk dekorasi ruang tamu berkarakter.', 345000, 'Home Decor', 'rotan', 'arrivals2.png', ['table-banner.jpg', 'Tas Kemasan Kopi.jpg']],
+            ['Tas Anyaman Mendong', 'Tas tangan anyaman serat mendong yang ringan, kuat, dan hangat dipandang.', 189000, 'Clothing & Accessories', 'anyaman', 'arrivals1.png', ['Tas Kemasan Kopi.jpg', 'plastic-spoon-lamp.jpg']],
+            ['Lampu Gantung Bambu', 'Lampu gantung dari bambu pilihan dengan pola anyaman terbuka yang hangat.', 420000, 'Home Decor', 'bambu', 'arrivals4.png', ['table-banner.jpg', 'perahu-botol.png']],
+            ['Vas Bunga Tanah Liat', 'Vas keramik tanah liat Kasongan dengan glazur alami dari abu dan tanah lokal.', 185000, 'Home Decor', 'keramik', 'arrivals5.png', ['plastic-spoon-lamp.jpg', 'delivery.png']],
+            ['Taplak Tenun Pesisir', 'Taplak dari sisa kain tenun Pekalongan, dijahit ulang menjadi tekstil rumah yang tahan lama.', 260000, 'Home Decor', 'tekstil', 'arrivals3.png', ['Tas Kemasan Kopi.jpg', 'sofa-collection-banner.jpg']],
+            ['Sofa Kayu Pulih', 'Sofa santai dari kayu bekas yang dipulihkan, dengan bantal tenun yang dapat dilepas.', 2450000, 'Furniture', 'kayu', 'sofa-collection-banner.jpg', ['table-banner.jpg', 'Tas Kemasan Kopi.jpg']],
+            ['Lampu Sendok Plastik Daur Ulang', 'Lampu meja dari sendok plastik bekas yang dipilah dan dirakit menjadi karya artistik.', 275000, 'Home Decor', 'daur ulang', 'plastic-spoon-lamp.jpg', ['perahu-botol.png', 'table-banner.jpg']],
+            ['Tas Kemasan Kopi Daur Ulang', 'Tas jinjing dari kemasan kopi bekas yang dibersihkan dan dijahit ulang.', 155000, 'Clothing & Accessories', 'daur ulang', 'Tas Kemasan Kopi.jpg', ['sofa-collection-banner.jpg', 'plastic-spoon-lamp.jpg']],
+            ['Hiasan Perahu Botol', 'Hiasan kapal dari botol plastik bekas, hadiah ramah lingkungan yang penuh cerita.', 95000, 'Toys', 'daur ulang', 'perahu-botol.png', ['table-banner.jpg', 'plastic-spoon-lamp.jpg']],
         ];
 
         $targetDir = storage_path('app/public/product_images');
         File::ensureDirectoryExists($targetDir);
 
-        foreach ($products as $index => [$name, $description, $price, $category, $material, $file]) {
+        foreach ($products as $index => [$name, $description, $price, $category, $material, $file, $galleryFiles]) {
             $slug = Str::slug($name);
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
             $stored = $slug . '.' . $ext;
@@ -60,6 +60,17 @@ class ProductSeeder extends Seeder
             $target = $targetDir . DIRECTORY_SEPARATOR . $stored;
             if (File::exists($source) && !File::exists($target)) {
                 File::copy($source, $target);
+            }
+
+            $galleryPaths = [];
+            foreach ($galleryFiles as $position => $galleryFile) {
+                $galleryStored = $slug . '-' . ($position + 2) . '.' . strtolower(pathinfo($galleryFile, PATHINFO_EXTENSION));
+                $gallerySource = public_path('assets/images/collection/' . $galleryFile);
+                $galleryTarget = $targetDir . DIRECTORY_SEPARATOR . $galleryStored;
+                if (File::exists($gallerySource) && !File::exists($galleryTarget)) {
+                    File::copy($gallerySource, $galleryTarget);
+                }
+                $galleryPaths[] = 'product_images/' . $galleryStored;
             }
 
             Product::updateOrCreate(['slug' => $slug], [
@@ -73,6 +84,7 @@ class ProductSeeder extends Seeder
                 'is_active' => true,
                 'status' => 'approved',
                 'image_url' => 'product_images/' . $stored,
+                'image_gallery' => $galleryPaths,
                 'quantity' => 8 + $index,
             ]);
         }

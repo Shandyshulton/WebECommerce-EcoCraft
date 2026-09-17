@@ -76,7 +76,6 @@ class SellerShipmentController extends Controller
             'shipment' => $shipment,
             'couriers' => $couriers,
             'items' => $shipment->sellerItems(),
-            'statuses' => Shipment::STATUSES,
             'trackingUrl' => $shipment->trackingUrl(),
         ]);
     }
@@ -85,24 +84,35 @@ class SellerShipmentController extends Controller
     {
         $this->authorizeShipment($shipment);
 
+        // Setelah paket diserahkan, pengelolaannya ada di kurir atau ekspedisi.
+        if (in_array($shipment->status, [Shipment::STATUS_SHIPPED, Shipment::STATUS_IN_TRANSIT, Shipment::STATUS_DELIVERED], true)) {
+            return back()->with('error', 'Paket sudah diserahkan. Status selanjutnya dikelola kurir atau ekspedisi.');
+        }
+
         $data = $request->validate([
-            'courier_id' => ['nullable', 'integer', 'exists:couriers,id_couriers'],
+            'courier_id' => ['required', 'integer', 'exists:couriers,id_couriers'],
             'tracking_number' => ['nullable', 'string', 'max:60'],
-            'status' => ['required', 'in:'.implode(',', Shipment::STATUSES)],
-            'description' => ['nullable', 'string', 'max:255'],
-            'location' => ['nullable', 'string', 'max:120'],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $needsShippingData = in_array($data['status'], [Shipment::STATUS_SHIPPED, Shipment::STATUS_IN_TRANSIT], true);
+        $courier = Courier::findOrFail($data['courier_id']);
         $errors = [];
 
-        if ($needsShippingData && empty($data['courier_id'])) {
-            $errors['courier_id'] = 'Pilih ekspedisi sebelum menandai paket dikirim.';
+        if ($shipment->order && $shipment->order->requiresPayment() && ! $shipment->order->isPaid()) {
+            $errors['courier_id'] = 'Pesanan ini belum dibayar. Tunggu pembayaran masuk sebelum mengirim.';
         }
 
-        if ($needsShippingData && empty($data['tracking_number'])) {
-            $errors['tracking_number'] = 'Nomor resi wajib diisi sebelum menandai paket dikirim.';
+        if ($courier->is_local_delivery) {
+            // Pengiriman sendiri: pengrajin hanya menyatakan paket siap diambil.
+            // Status perjalanan selanjutnya dikelola petugas kurir.
+            $data['status'] = Shipment::STATUS_PACKED;
+        } else {
+            if (empty($data['tracking_number'])) {
+                $errors['tracking_number'] = 'Nomor resi wajib diisi saat menyerahkan paket ke ekspedisi.';
+            }
+
+            // Menyerahkan paket ke ekspedisi berarti paket mulai dikirim.
+            $data['status'] = Shipment::STATUS_SHIPPED;
         }
 
         if ($errors) {
@@ -113,24 +123,9 @@ class SellerShipmentController extends Controller
 
         return redirect()
             ->route('seller.shipments.show', $shipment)
-            ->with('success', 'Data pengiriman berhasil diperbarui.');
-    }
-
-    public function storeEvent(Request $request, Shipment $shipment)
-    {
-        $this->authorizeShipment($shipment);
-
-        $data = $request->validate([
-            'status' => ['required', 'in:'.implode(',', Shipment::STATUSES)],
-            'description' => ['required', 'string', 'max:255'],
-            'location' => ['nullable', 'string', 'max:120'],
-        ]);
-
-        $this->shipments->addCheckpoint($shipment, $data);
-
-        return redirect()
-            ->route('seller.shipments.show', $shipment)
-            ->with('success', 'Riwayat perjalanan paket ditambahkan.');
+            ->with('success', $courier->is_local_delivery
+                ? 'Paket ditandai siap diambil kurir.'
+                : 'Paket diserahkan ke '.$courier->name.'.');
     }
 
     private function authorizeShipment(Shipment $shipment): void

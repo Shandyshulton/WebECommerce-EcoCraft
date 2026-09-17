@@ -27,7 +27,7 @@ class CheckoutController extends Controller
 
     public function index()
     {
-        $cart = session('cart', []);
+        $cart = $this->cartItems();
         $products = Product::whereIn('id_products', array_keys($cart))->where('status', 'approved')->where('is_active', true)->get();
         $items = $products->map(fn ($product) => ['product' => $product, 'quantity' => (int) $cart[$product->getKey()], 'subtotal' => $product->price * (int) $cart[$product->getKey()]]);
 
@@ -74,7 +74,7 @@ class CheckoutController extends Controller
         ]);
 
         $customer = Auth::guard('customer')->user();
-        $cart = session('cart', []);
+        $cart = $this->cartItems();
         $subtotal = (float) Product::whereIn('id_products', array_keys($cart))
             ->where('status', 'approved')->where('is_active', true)->get()
             ->sum(fn ($product) => $product->price * (int) $cart[$product->getKey()]);
@@ -152,7 +152,7 @@ class CheckoutController extends Controller
                 'shipping_postal_code.required' => 'Kode pos wajib diisi.',
             ]);
         }
-        $cart = session('cart', []);
+        $cart = $this->cartItems();
         $products = Product::whereIn('id_products', array_keys($cart))->where('status', 'approved')->where('is_active', true)->get();
 
         abort_if($products->isEmpty(), 422, 'Cart masih kosong.');
@@ -244,14 +244,46 @@ class CheckoutController extends Controller
             return $order;
         });
 
-        session()->forget('cart');
+        // Hanya item yang benar-benar dibeli yang keluar dari keranjang; sisanya
+        // tetap tersimpan bila pembeli hanya memilih sebagian.
+        $remaining = session('cart', []);
+        foreach (array_keys($cart) as $purchasedId) {
+            unset($remaining[$purchasedId]);
+        }
+        session(['cart' => $remaining]);
+        session()->forget('cart_selection');
 
         $message = "Order {$order->order_number} berhasil dibuat.";
         if ($order->coins_earned > 0) {
             $message .= " Kamu mendapat {$order->coins_earned} koin sirkular.";
         }
 
+        // Transfer dan QRIS punya langkah pembayaran; COD dibayar saat barang tiba.
+        if ($order->requiresPayment()) {
+            return redirect()->route('payment.show', $order)->with('success', $message);
+        }
+
         return redirect()->route('track.track')->with('success', $message);
+    }
+
+    /**
+     * Isi keranjang yang ikut diproses checkout.
+     *
+     * Bila pembeli memilih sebagian item di halaman keranjang, hanya item itu
+     * yang dipakai. Tanpa pilihan tersimpan, seluruh keranjang diproses.
+     *
+     * @return array<int|string, int>
+     */
+    private function cartItems(): array
+    {
+        $cart = session('cart', []);
+        $selection = session('cart_selection');
+
+        if (! is_array($selection) || $selection === []) {
+            return $cart;
+        }
+
+        return array_intersect_key($cart, array_flip(array_map('intval', $selection)));
     }
 
     /**

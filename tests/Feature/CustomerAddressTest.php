@@ -207,7 +207,7 @@ class CustomerAddressTest extends TestCase
                 'customer_phone' => '081200000053',
                 'address_choice' => (string) $address->id_addresses,
                 'shipping_method' => 'Reguler',
-                'payment_method' => 'Transfer Bank',
+                'payment_method' => 'COD',
             ])
             ->assertRedirect(route('track.track'));
 

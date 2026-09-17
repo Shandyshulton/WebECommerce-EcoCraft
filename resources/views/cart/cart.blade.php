@@ -27,6 +27,7 @@
                         <span class="cart-selected-count" id="cart-selected-count">0 dipilih</span>
                         <form action="{{ route('cart.items.destroySelected') }}" method="POST" id="cart-bulk-form" onsubmit="return confirm('Hapus item yang dipilih?')">
                             @csrf @method('DELETE')
+                            <span id="cart-bulk-inputs"></span>
                             <button type="submit" class="btn btn-sm btn-outline-danger" id="cart-bulk-delete" disabled><i class="fa fa-trash"></i> Hapus terpilih</button>
                         </form>
                     </div>
@@ -47,7 +48,7 @@
                             <tbody>
                                 @foreach($items as $item)
                                     <tr>
-                                        <td><input type="checkbox" class="cart-item-check" form="cart-bulk-form" name="product_ids[]" value="{{ $item['product']->id_products }}"></td>
+                                        <td><input type="checkbox" class="cart-item-check" value="{{ $item['product']->id_products }}" data-subtotal="{{ $item['subtotal'] }}" @checked(in_array($item['product']->id_products, $selectedIds, true))></td>
                                         <td>
                                             <div class="cart-product">
                                                 <img src="{{ $item['product']->image_url ? asset('storage/'.$item['product']->image_url) : asset('assets/images/collection/arrivals1.png') }}" alt="{{ $item['product']->name }}">
@@ -80,7 +81,7 @@
                     <div class="cart-cards">
                         @foreach($items as $item)
                             <div class="cart-card">
-                                <label class="cart-card-check"><input type="checkbox" class="cart-item-check" form="cart-bulk-form" name="product_ids[]" value="{{ $item['product']->id_products }}"></label>
+                                <label class="cart-card-check"><input type="checkbox" class="cart-item-check" value="{{ $item['product']->id_products }}" data-subtotal="{{ $item['subtotal'] }}" @checked(in_array($item['product']->id_products, $selectedIds, true))></label>
                                 <img class="cart-card-img" src="{{ $item['product']->image_url ? asset('storage/'.$item['product']->image_url) : asset('assets/images/collection/arrivals1.png') }}" alt="{{ $item['product']->name }}">
                                 <div class="cart-card-body">
                                     <strong class="cart-card-title">{{ $item['product']->name }}</strong>
@@ -106,12 +107,17 @@
 
                 <aside class="cart-summary">
                     <h2>Ringkasan belanja</h2>
-                    <div class="cart-total"><span>Total</span><strong class="price">Rp {{ number_format($total,0,',','.') }}</strong></div>
+                    <div class="cart-total"><span>Total</span><strong class="price" id="cart-total-value">Rp {{ number_format($total,0,',','.') }}</strong></div>
+                    <p class="small text-muted mt-2 mb-0" id="cart-total-note">{{ count($selectedIds) }} dari {{ $items->count() }} produk dipilih.</p>
                     @guest('customer')
                         <p class="small text-muted mt-3">Login atau daftar diperlukan sebelum checkout.</p>
                         <a href="{{ route('login') }}" class="btn btn-brand w-100">Login untuk checkout</a>
                     @else
-                        <a href="{{ route('checkout.index') }}" class="btn btn-brand w-100 mt-4">Lanjut ke checkout</a>
+                        <form action="{{ route('cart.checkout') }}" method="POST" id="cart-checkout-form">
+                            @csrf
+                            <span id="cart-checkout-inputs"></span>
+                            <button type="submit" class="btn btn-brand w-100 mt-3">Lanjut ke checkout</button>
+                        </form>
                     @endguest
                 </aside>
             </div>
@@ -126,14 +132,34 @@
     var selectAll = document.getElementById('cart-select-all');
     var checks = Array.prototype.slice.call(document.querySelectorAll('.cart-item-check'));
     var countEl = document.getElementById('cart-selected-count');
+    var totalEl = document.getElementById('cart-total-value');
+    var noteEl = document.getElementById('cart-total-note');
     var delBtn = document.getElementById('cart-bulk-delete');
     if (!checks.length) return;
 
-    // Kelompokkan checkbox per product id (tabel & kartu punya value sama)
+    // Tabel (desktop) dan kartu (mobile) memakai value yang sama, jadi jumlah
+    // produk unik dihitung dari value, bukan dari jumlah checkbox.
+    var totalProducts = Object.keys(checks.reduce(function(acc, c){ acc[c.value] = true; return acc; }, {})).length;
+
+    var subtotals = {};
+    checks.forEach(function(c){ subtotals[c.value] = parseFloat(c.getAttribute('data-subtotal')) || 0; });
+
     function selectedIds(){
         var set = {};
         checks.forEach(function(c){ if(c.checked) set[c.value]=true; });
         return Object.keys(set);
+    }
+    function rupiah(value){ return 'Rp ' + Math.round(value).toLocaleString('id-ID'); }
+    function inject(box, ids){
+        if (!box) return;
+        box.innerHTML = '';
+        ids.forEach(function(id){
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'product_ids[]';
+            input.value = id;
+            box.appendChild(input);
+        });
     }
     function sync(source){
         // Samakan status antar checkbox dengan value sama (desktop <-> mobile)
@@ -143,9 +169,15 @@
         var ids = selectedIds();
         countEl.textContent = ids.length + ' dipilih';
         delBtn.disabled = ids.length === 0;
-        var allChecked = ids.length > 0 && ids.length === new Set(checks.map(function(c){return c.value;})).size;
-        if (selectAll) selectAll.checked = allChecked;
+
+        var sum = 0;
+        ids.forEach(function(id){ sum += subtotals[id] || 0; });
+        if (totalEl) totalEl.textContent = rupiah(sum);
+        if (noteEl) noteEl.textContent = ids.length + ' dari ' + totalProducts + ' produk dipilih.';
+
+        if (selectAll) selectAll.checked = ids.length > 0 && ids.length === totalProducts;
     }
+
     checks.forEach(function(c){ c.addEventListener('change', function(){ sync(c); }); });
     if (selectAll){
         selectAll.addEventListener('change', function(){
@@ -153,6 +185,30 @@
             sync(null);
         });
     }
+
+    // Checkbox berada di dalam tabel, jadi tidak bisa memakai atribut form.
+    // Isian dikirim ke form yang sedang disubmit lewat input tersembunyi.
+    var bulkForm = document.getElementById('cart-bulk-form');
+    if (bulkForm){
+        bulkForm.addEventListener('submit', function(e){
+            var ids = selectedIds();
+            if (!ids.length){ e.preventDefault(); return; }
+            inject(document.getElementById('cart-bulk-inputs'), ids);
+        });
+    }
+    var checkoutForm = document.getElementById('cart-checkout-form');
+    if (checkoutForm){
+        checkoutForm.addEventListener('submit', function(e){
+            var ids = selectedIds();
+            if (!ids.length){
+                e.preventDefault();
+                alert('Pilih minimal satu produk untuk di-checkout.');
+                return;
+            }
+            inject(document.getElementById('cart-checkout-inputs'), ids);
+        });
+    }
+
     sync(null);
 })();
 

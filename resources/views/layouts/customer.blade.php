@@ -14,7 +14,7 @@
 </head>
 <body>
 <div class="customer-shell">
-    <header class="customer-nav" data-customer-nav>
+    <header class="customer-nav">
         <div class="customer-nav-inner">
             <a class="brand" href="{{ route('customer.dashboard') }}">
                 <img src="{{ asset('assets/logo/ecocraft-logo.png') }}" alt="EcoCraft">
@@ -24,7 +24,6 @@
                 <input type="search" name="q" value="{{ request('q') }}" placeholder="Cari produk, kategori, atau material" aria-label="Cari produk">
                 <button type="submit" aria-label="Cari"><i class="fa fa-arrow-right" aria-hidden="true"></i></button>
             </form>
-            <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-label="Buka menu">☰</button>
             <nav class="nav-links" aria-label="Customer navigation">
                 <a href="{{ route('customer.dashboard') }}"><i class="fa fa-home"></i><span>Home</span></a>
                 <a href="{{ route('catalog.index') }}"><i class="fa fa-th-large"></i><span>Katalog</span></a>
@@ -69,6 +68,25 @@
             </div>
         </div>
     </header>
+    @php($quickMember = auth('customer')->check())
+    {{-- Pintasan cepat: bentuk menu utama di bawah desktop. Isinya sengaja
+         lengkap supaya tidak ada menu yang hilang saat baris menu header
+         disembunyikan (<=1024px). --}}
+    <nav class="quick-nav" aria-label="Pintasan cepat">
+        <a class="{{ request()->routeIs('customer.dashboard') ? 'active' : '' }}" href="{{ route('customer.dashboard') }}"><i class="fa fa-home"></i><span>Home</span></a>
+        <a class="{{ request()->routeIs('catalog.index') || request()->routeIs('product.show') ? 'active' : '' }}" href="{{ route('catalog.index') }}"><i class="fa fa-th-large"></i><span>Katalog</span></a>
+        <a class="{{ request()->routeIs('cart.*') ? 'active' : '' }}" href="{{ $quickMember ? route('cart.show') : route('login') }}"><i class="fa fa-shopping-cart"></i><span>Keranjang</span></a>
+        <a class="{{ request()->routeIs('customer.inquiries.*') ? 'active' : '' }}" href="{{ $quickMember ? route('customer.inquiries.index') : route('login') }}"><i class="fa fa-comments"></i><span>Chat Seller</span></a>
+        <a class="{{ request()->routeIs('track.track') ? 'active' : '' }}" href="{{ $quickMember ? route('track.track') : route('login') }}"><i class="fa fa-receipt"></i><span>Pembelian</span></a>
+        <a class="{{ request()->routeIs('customer.wallet') ? 'active' : '' }}" href="{{ $quickMember ? route('customer.wallet') : route('login') }}"><i class="fa fa-coins"></i><span>Dompet</span></a>
+        <a href="{{ route('customer.dashboard') }}#stories"><i class="fa fa-shopping-bag"></i><span>Cerita Pengrajin</span></a>
+        <a href="{{ route('customer.dashboard') }}#impact"><i class="fa fa-leaf"></i><span>Dampak Lingkungan</span></a>
+        <a class="{{ request()->routeIs('about') ? 'active' : '' }}" href="{{ route('about') }}"><i class="fa fa-info-circle"></i><span>Tentang Kami</span></a>
+        <a class="is-hidden {{ request()->routeIs('customer.profile') ? 'active' : '' }}" href="{{ $quickMember ? route('customer.profile') : route('login') }}"><i class="fa fa-user"></i><span>Akun</span></a>
+        <a class="is-hidden {{ request()->routeIs('customer.addresses.*') ? 'active' : '' }}" href="{{ $quickMember ? route('customer.addresses.index') : route('login') }}"><i class="fa fa-location-dot"></i><span>Alamat</span></a>
+        <a class="is-hidden" href="{{ route('seller.register.form') }}"><i class="fa fa-store"></i><span>Jadi Seller</span></a>
+        <button type="button" class="quick-nav-more" data-quick-nav-more aria-expanded="false"><i class="fa fa-plus" aria-hidden="true"></i> Muat lebih banyak</button>
+    </nav>
     <main class="customer-main">@yield('content')</main>
     <footer @auth('customer') id="about" @endauth class="site-footer">
         <div class="page-wrap">
@@ -107,21 +125,55 @@
 </div>
 @stack('scripts')
 <script>
-document.querySelector('[data-menu-toggle]')?.addEventListener('click', function () {
-    var nav = document.querySelector('[data-customer-nav]');
-    var open = nav.classList.toggle('nav-open');
-    this.setAttribute('aria-expanded', open ? 'true' : 'false');
-    this.textContent = open ? '×' : '☰';
-});
-document.querySelectorAll('[data-customer-nav] .nav-links a').forEach(function (link) {
-    link.addEventListener('click', function () {
-        var nav = document.querySelector('[data-customer-nav]');
-        var toggle = document.querySelector('[data-menu-toggle]');
-        nav.classList.remove('nav-open');
-        toggle?.setAttribute('aria-expanded', 'false');
-        if (toggle) toggle.textContent = '☰';
+    // "Muat lebih banyak" pada pintasan cepat: tampilkan sisa menu lalu tombolnya hilang.
+    document.querySelector('[data-quick-nav-more]')?.addEventListener('click', function () {
+        document.querySelectorAll('.quick-nav a.is-hidden').forEach(function (item) {
+            item.classList.remove('is-hidden');
+        });
+        this.setAttribute('aria-expanded', 'true');
+        this.remove();
     });
-});
+
+    // Animasi slider komunitas: kartu yang paling dekat tepi awal rel tampil
+    // paling besar (`--rail-focus` = 1), kartu berikutnya mengecil dan meredup
+    // seiring rel digeser. Dihitung sekali per frame, dan dilewati sama sekali
+    // saat prefers-reduced-motion aktif sehingga semua kartu sama besar.
+    (function () {
+        if (!window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var tracks = Array.prototype.slice.call(document.querySelectorAll('.community-row-track, .community-highlights-grid'));
+        if (!tracks.length) return;
+
+        function paint(track) {
+            var cards = track.children;
+            if (!cards.length) return;
+            var base = cards[0].offsetLeft;
+            var span = Math.max(track.clientWidth * 0.55, 1);
+
+            for (var i = 0; i < cards.length; i++) {
+                var delta = (cards[i].offsetLeft - base) - track.scrollLeft;
+                var focus = Math.max(0, 1 - Math.abs(delta) / span);
+                cards[i].style.setProperty('--rail-focus', focus.toFixed(3));
+            }
+        }
+
+        tracks.forEach(function (track) {
+            var queued = false;
+
+            function schedule() {
+                if (queued) return;
+                queued = true;
+                requestAnimationFrame(function () {
+                    queued = false;
+                    paint(track);
+                });
+            }
+
+            track.addEventListener('scroll', schedule, { passive: true });
+            window.addEventListener('resize', schedule);
+            paint(track);
+        });
+    })();
 </script>
 </body>
 </html>

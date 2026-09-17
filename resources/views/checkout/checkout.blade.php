@@ -1,14 +1,114 @@
 @extends('layouts.customer')
 @section('title','Checkout | EcoCraft')
 @push('styles')
-<style>.checkout-page{padding:34px 0 72px}.checkout-heading h1{font:600 46px/1 'EB Garamond',serif;margin:8px 0 26px}.checkout-layout{display:grid;grid-template-columns:minmax(0,1.2fr) 360px;gap:20px}.checkout-panel,.checkout-summary{padding:24px;background:#fff;border:1px solid var(--line);border-radius:14px}.checkout-panel h2,.checkout-summary h2{font:600 27px/1 'EB Garamond',serif;margin:0 0 22px}.checkout-page .form-label{font-size:11px;font-weight:800}.checkout-page .form-control,.checkout-page .form-select{min-height:44px;border:1px solid var(--line);border-radius:8px;background:#f8faf8;font-size:12px}.checkout-page .form-control:focus,.checkout-page .form-select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(30,75,56,.12)}.checkout-summary{position:sticky;top:96px;align-self:start}.checkout-item{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}.checkout-total{display:flex;justify-content:space-between;padding-top:18px;font-size:14px}.checkout-reward{padding:14px 0;border-bottom:1px solid var(--line)}.checkout-reward .form-label{margin-bottom:6px}.checkout-reward small{color:var(--muted);font-size:11px}@media(max-width:800px){.checkout-layout{grid-template-columns:1fr}.checkout-summary{position:static}.checkout-heading h1{font-size:40px}}</style>
+<style>
+    .checkout-page { padding:34px 0 72px; }
+    .checkout-heading h1 { font:600 clamp(30px,5.5vw,46px)/1.05 'EB Garamond',serif; margin:8px 0 26px; }
+
+    /* Dua kolom hanya saat benar-benar muat; sidebar memakai rentang, bukan 360px kaku. */
+    .checkout-layout { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(300px,360px); gap:20px; align-items:start; }
+
+    .checkout-panel, .checkout-summary { padding:24px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+    .checkout-panel { min-width:0; }
+    .checkout-panel h2, .checkout-summary h2 { font:600 27px/1 'EB Garamond',serif; margin:0 0 22px; }
+    .checkout-page .form-label { font-size:11px; font-weight:800; }
+    .checkout-page .form-control, .checkout-page .form-select { min-height:44px; border:1px solid var(--line); border-radius:8px; background-color:#f8faf8; font-size:12px; }
+    .checkout-page .form-control:focus, .checkout-page .form-select:focus { border-color:var(--brand); box-shadow:0 0 0 3px rgba(30,75,56,.12); }
+    .checkout-page textarea.form-control { min-height:88px; }
+
+    /* ===== Sistem form checkout (menggantikan grid Bootstrap) ===== */
+    .co-section + .co-section { margin-top:20px; padding-top:20px; border-top:1px solid var(--line); }
+    .co-section-title { margin:0 0 12px; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+
+    .co-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 14px; }
+    .co-field { min-width:0; }
+    .co-field.co-full { grid-column:1/-1; }
+    /* Checkbox "Simpan alamat" punya gayanya sendiri, jadi dikecualikan. */
+    .co-field > label:not(.save-address-check) { display:block; font-size:11px; font-weight:800; margin-bottom:8px; color:var(--ink); }
+
+    .co-field input:not([type=checkbox]):not([type=radio]),
+    .co-field select,
+    .co-field textarea {
+        width:100%; min-height:44px; padding:10px 12px;
+        border:1px solid var(--line); border-radius:9px;
+        /* background-color, bukan shorthand `background` — shorthand akan
+           menghapus background-image panah kustom pada select. */
+        background-color:#f8faf8; color:var(--ink);
+        font:13px 'Plus Jakarta Sans',system-ui,sans-serif;
+    }
+    /* Ruang untuk panah kustom agar teks tidak menabraknya. */
+    .co-field select { padding-right:38px; }
+    .co-field textarea { min-height:88px; resize:vertical; }
+    .co-field input:not([type=checkbox]):not([type=radio]):focus,
+    .co-field select:focus,
+    .co-field textarea:focus {
+        outline:0; border-color:var(--brand); box-shadow:0 0 0 3px rgba(30,75,56,.12);
+    }
+
+    /* Field yang tidak bisa diubah harus terlihat berbeda, bukan seperti input biasa.
+       Selector `:not()` diulang agar spesifisitasnya setara dengan aturan dasar di atas —
+       tanpa itu, aturan dasar yang lebih spesifik akan menimpanya. */
+    .co-field input[readonly]:not([type=checkbox]):not([type=radio]) {
+        background:var(--surface); color:var(--muted); border-style:dashed; cursor:not-allowed;
+    }
+    .co-field input[readonly]:not([type=checkbox]):not([type=radio]):focus {
+        border-color:var(--line); box-shadow:none;
+    }
+
+    /* Ringkasan menempel, tetapi tingginya dibatasi supaya tombol "Buat pesanan"
+       tidak pernah terjebak di bawah lipatan pada layar pendek. */
+    .checkout-summary { position:sticky; top:96px; max-height:calc(100vh - 120px); overflow-y:auto; overscroll-behavior:contain; }
+
+    .checkout-item { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:12px 0; border-bottom:1px solid var(--line); font-size:12px; }
+    .checkout-item > span { min-width:0; overflow-wrap:anywhere; }
+    .checkout-item > strong { flex:0 0 auto; white-space:nowrap; }
+
+    .checkout-total { display:flex; justify-content:space-between; align-items:baseline; gap:16px; padding-top:18px; font-size:14px; }
+    .checkout-total > strong:last-child { flex:0 0 auto; white-space:nowrap; }
+
+    .checkout-reward { padding:14px 0; border-bottom:1px solid var(--line); }
+    .checkout-reward .form-label { margin-bottom:8px; }
+    /* Jarak eksplisit antar kontrol di blok ini — jangan bergantung pada utility
+       Bootstrap, yang spesifisitasnya kalah dan membuat kontrol saling menempel. */
+    .checkout-reward select { padding-right:36px; margin-bottom:12px; }
+    /* Teks bantuan harus punya jarak dari kontrol di atasnya, jangan menempel. */
+    .checkout-reward small { display:block; margin-top:10px; color:var(--muted); font-size:11px; line-height:1.6; }
+
+    .checkout-coins { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .checkout-coins input { flex:0 1 120px; min-width:0; }
+
+    /* Halaman customer memuat Bootstrap 3.3.6, yang tidak punya utility Bootstrap 5
+       (w-100, mt-*, mb-*). Lebar dan jarak di blok ini diatur sendiri di sini. */
+    .checkout-cta { display:block; width:100%; margin-top:20px; }
+    .checkout-note { display:block; margin:14px 0 0; color:var(--muted); font-size:11px; line-height:1.6; }
+    .checkout-page .alert ul { margin:0; }
+
+    /* Di bawah 1000px sidebar sudah terlalu sempit untuk berdampingan. */
+    @media (max-width:1000px) {
+        .checkout-layout { grid-template-columns:minmax(0,1fr); gap:16px; }
+        .checkout-summary { position:static; max-height:none; overflow:visible; }
+    }
+
+    /* Di bawah 560px dua kolom jadi terlalu sempit untuk field. */
+    @media (max-width:560px) {
+        .co-grid { grid-template-columns:minmax(0,1fr); }
+    }
+
+    @media (max-width:640px) {
+        .checkout-page { padding:22px 0 48px; }
+        .checkout-panel, .checkout-summary { padding:16px; }
+        .checkout-panel h2, .checkout-summary h2 { font-size:22px; margin-bottom:16px; }
+        .checkout-heading h1 { margin:6px 0 18px; }
+    }
+</style>
 <style>
     .address-picker { display:grid; gap:10px; margin-bottom:18px; }
     .address-option { display:flex; gap:12px; padding:13px; border:1px solid var(--line); border-radius:10px; background:#f8faf8; cursor:pointer; }
     .address-option:has(input:checked) { border-color:var(--brand); background:#edf4ee; }
     .address-option input { flex:0 0 auto; width:16px; height:16px; margin-top:2px; accent-color:var(--brand); cursor:pointer; }
     .address-option strong { display:block; font-size:12.5px; }
-    .address-option small { display:block; margin-top:3px; color:var(--muted); font-size:11.5px; line-height:1.55; }
+    .address-option > span { min-width:0; }
+    .address-option small { display:block; margin-top:4px; color:var(--muted); font-size:11.5px; line-height:1.55; overflow-wrap:anywhere; }
     .save-address-check { display:flex; align-items:center; gap:10px; font-size:12.5px; font-weight:600; cursor:pointer; }
     .save-address-check input { width:16px; height:16px; accent-color:var(--brand); cursor:pointer; }
 </style>
@@ -19,7 +119,7 @@
         <div class="eyebrow">Checkout aman</div>
         <div class="checkout-heading"><h1>Selesaikan pesananmu.</h1></div>
         @if($errors->any())
-            <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+            <div class="alert alert-danger"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
         @endif
         @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
 
@@ -53,20 +153,67 @@
                         </label>
                     </div>
 
-                    <div class="row g-3">
-                        <div class="col-md-6"><label class="form-label">Nama penerima</label><input class="form-control" value="{{ Auth::guard('customer')->user()->name_customers }}" readonly></div>
-                        <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" value="{{ Auth::guard('customer')->user()->email }}" readonly></div>
-                        <div class="col-md-6"><label class="form-label">Nomor WhatsApp</label><input class="form-control" name="customer_phone" value="{{ old('customer_phone',Auth::guard('customer')->user()->phone_number) }}" required></div>
-                        <div class="col-md-6" data-manual-field><label class="form-label">Kode pos</label><input class="form-control" name="shipping_postal_code" value="{{ old('shipping_postal_code') }}"></div>
-                        <div class="col-12" data-manual-field><label class="form-label">Alamat lengkap</label><textarea class="form-control" name="shipping_address" rows="3">{{ old('shipping_address') }}</textarea></div>
-                        <div class="col-md-6" data-manual-field><label class="form-label">Kota</label><input class="form-control" name="shipping_city" value="{{ old('shipping_city',Auth::guard('customer')->user()->city) }}"></div>
-                        <div class="col-md-6" data-manual-field><label class="form-label">Provinsi</label><input class="form-control" name="shipping_province" value="{{ old('shipping_province',Auth::guard('customer')->user()->province) }}"></div>
-                        <div class="col-md-6" data-manual-field><label class="form-label">Label alamat (opsional)</label><input class="form-control" name="address_label" value="{{ old('address_label') }}" placeholder="Rumah, Kantor…"></div>
-                        <div class="col-12" data-manual-field>
-                            <label class="save-address-check"><input type="checkbox" name="save_address" value="1" @checked(old('save_address'))><span>Simpan alamat ini ke daftar alamat</span></label>
+                    <div class="co-section">
+                        <h3 class="co-section-title">Penerima</h3>
+                        <div class="co-grid">
+                            <div class="co-field">
+                                <label for="co-name">Nama penerima</label>
+                                <input id="co-name" value="{{ Auth::guard('customer')->user()->name_customers }}" readonly>
+                            </div>
+                            <div class="co-field">
+                                <label for="co-email">Email</label>
+                                <input id="co-email" value="{{ Auth::guard('customer')->user()->email }}" readonly>
+                            </div>
+                            <div class="co-field co-full">
+                                <label for="co-phone">Nomor WhatsApp</label>
+                                <input id="co-phone" name="customer_phone" value="{{ old('customer_phone', Auth::guard('customer')->user()->phone_number) }}" required>
+                            </div>
                         </div>
-                        <div class="col-md-6"><label class="form-label">Metode pengiriman</label><select class="form-select" name="shipping_method" required>@foreach(['Reguler','Express','Sameday'] as $method)<option value="{{ $method }}">{{ $method }}</option>@endforeach</select></div>
-                        <div class="col-md-6"><label class="form-label">Metode pembayaran</label><select class="form-select" name="payment_method" required>@foreach(['COD','Transfer Bank','QRIS'] as $method)<option value="{{ $method }}">{{ $method }}</option>@endforeach</select></div>
+                    </div>
+
+                    {{-- Blok ini hanya tampil saat memilih "Alamat baru"; JS menyembunyikannya
+                         sebagai satu kesatuan lewat data-manual-field. --}}
+                    <div class="co-section" data-manual-field>
+                        <h3 class="co-section-title">Alamat pengiriman</h3>
+                        <div class="co-grid">
+                            <div class="co-field co-full">
+                                <label for="co-address">Alamat lengkap</label>
+                                <textarea id="co-address" name="shipping_address" rows="3">{{ old('shipping_address') }}</textarea>
+                            </div>
+                            <div class="co-field">
+                                <label for="co-city">Kota</label>
+                                <input id="co-city" name="shipping_city" value="{{ old('shipping_city', Auth::guard('customer')->user()->city) }}">
+                            </div>
+                            <div class="co-field">
+                                <label for="co-province">Provinsi</label>
+                                <input id="co-province" name="shipping_province" value="{{ old('shipping_province', Auth::guard('customer')->user()->province) }}">
+                            </div>
+                            <div class="co-field">
+                                <label for="co-postal">Kode pos</label>
+                                <input id="co-postal" name="shipping_postal_code" value="{{ old('shipping_postal_code') }}">
+                            </div>
+                            <div class="co-field">
+                                <label for="co-label">Label alamat (opsional)</label>
+                                <input id="co-label" name="address_label" value="{{ old('address_label') }}" placeholder="Rumah, Kantor…">
+                            </div>
+                            <div class="co-field co-full">
+                                <label class="save-address-check"><input type="checkbox" name="save_address" value="1" @checked(old('save_address'))><span>Simpan alamat ini ke daftar alamat</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="co-section">
+                        <h3 class="co-section-title">Pengiriman &amp; pembayaran</h3>
+                        <div class="co-grid">
+                            <div class="co-field">
+                                <label for="co-shipping">Metode pengiriman</label>
+                                <select id="co-shipping" name="shipping_method" required>@foreach(['Reguler','Express','Sameday'] as $method)<option value="{{ $method }}">{{ $method }}</option>@endforeach</select>
+                            </div>
+                            <div class="co-field">
+                                <label for="co-payment">Metode pembayaran</label>
+                                <select id="co-payment" name="payment_method" required>@foreach(['COD','Transfer Bank','QRIS'] as $method)<option value="{{ $method }}">{{ $method }}</option>@endforeach</select>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -93,8 +240,8 @@
 
                     <div class="checkout-reward">
                         <label class="form-label" for="coinsUsed">Koin sirkular · 1 koin = Rp {{ number_format($coinValue,0,',','.') }}</label>
-                        <div class="d-flex gap-2 align-items-center">
-                            <input type="number" class="form-control form-control-sm" id="coinsUsed" name="coins_used" min="0" max="{{ $coinBalance }}" value="{{ (int) old('coins_used', 0) }}" style="max-width:120px">
+                        <div class="checkout-coins">
+                            <input type="number" class="form-control form-control-sm" id="coinsUsed" name="coins_used" min="0" max="{{ $coinBalance }}" value="{{ (int) old('coins_used', 0) }}">
                             <button type="button" class="btn btn-outline-brand btn-sm" id="useMaxCoins">Pakai maks</button>
                         </div>
                         <small>Saldo kamu {{ number_format($coinBalance,0,',','.') }} koin.</small>
@@ -104,10 +251,10 @@
                     <div class="checkout-item"><span>Potongan voucher</span><strong id="sumVoucher">- Rp 0</strong></div>
                     <div class="checkout-item"><span>Potongan koin</span><strong id="sumCoin">- Rp 0</strong></div>
                     <div class="checkout-total"><strong>Total pembayaran</strong><strong class="price" id="sumTotal">Rp {{ number_format($total,0,',','.') }}</strong></div>
-                    <p class="small text-muted mt-2 mb-0" id="rewardNote">Maksimal potongan 50% dari subtotal.</p>
+                    <p class="small text-muted checkout-note" id="rewardNote">Maksimal potongan 50% dari subtotal.</p>
 
-                    <button class="btn btn-brand w-100 mt-4" type="submit">Buat pesanan</button>
-                    <p class="small text-muted mt-3 mb-0">Dengan melanjutkan, kamu menyetujui detail pengiriman dan pembayaran.</p>
+                    <button class="btn btn-brand checkout-cta" type="submit">Buat pesanan</button>
+                    <p class="small text-muted checkout-note">Dengan melanjutkan, kamu menyetujui detail pengiriman dan pembayaran.</p>
                 </aside>
             </div>
         </form>

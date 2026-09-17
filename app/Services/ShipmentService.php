@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CourierUser;
 use App\Models\Order;
 use App\Models\Shipment;
 use Illuminate\Support\Collection;
@@ -45,41 +46,80 @@ class ShipmentService
      */
     public function updateShipment(Shipment $shipment, array $data): Shipment
     {
-        return $this->persist($shipment, $data, false);
+        return $this->persist($shipment, $data, false, Shipment::SOURCE_SELLER);
+    }
+
+    /**
+     * Petugas kurir mengambil paket dari daftar tugas.
+     *
+     * Dikunci supaya dua kurir tidak mengambil paket yang sama.
+     */
+    public function claim(Shipment $shipment, CourierUser $courier): bool
+    {
+        return DB::transaction(function () use ($shipment, $courier) {
+            $locked = Shipment::whereKey($shipment->getKey())->lockForUpdate()->first();
+
+            $notClaimable = $locked === null
+                || $locked->courier_user_id !== null
+                || $locked->status !== Shipment::STATUS_PACKED
+                || ! $locked->courier?->is_local_delivery;
+
+            if ($notClaimable) {
+                return false;
+            }
+
+            // Mengambil tugas berarti paket berpindah ke tangan kurir, jadi
+            // statusnya langsung `Shipped`. Kurir tidak perlu menekan apa pun
+            // lagi sampai paket benar-benar tiba.
+            $locked->update([
+                'courier_user_id' => $courier->getKey(),
+                'status' => Shipment::STATUS_SHIPPED,
+                'shipped_at' => now(),
+            ]);
+
+            $this->recordEvent(
+                $locked,
+                Shipment::STATUS_SHIPPED,
+                $courier->name.' mengambil paket ini untuk diantar.',
+                null,
+                Shipment::SOURCE_COURIER
+            );
+
+            $this->syncOrderStatus($locked->order);
+
+            return true;
+        });
     }
 
     /**
      * Catat satu titik perjalanan paket (mis. tiba di kota transit).
      */
-    public function addCheckpoint(Shipment $shipment, array $data): Shipment
+    public function addCheckpoint(Shipment $shipment, array $data, string $source): Shipment
     {
         return $this->persist($shipment, array_merge($data, [
             'courier_id' => $shipment->courier_id,
             'tracking_number' => $shipment->tracking_number,
             'note' => $shipment->note,
-        ]), true);
+        ]), true, $source);
     }
 
-    private function persist(Shipment $shipment, array $data, bool $alwaysRecordEvent): Shipment
+    private function persist(Shipment $shipment, array $data, bool $alwaysRecordEvent, string $source): Shipment
     {
-        return DB::transaction(function () use ($shipment, $data, $alwaysRecordEvent) {
+        return DB::transaction(function () use ($shipment, $data, $alwaysRecordEvent, $source) {
             $previousStatus = $shipment->status;
             $status = $data['status'];
 
+            // Field yang tidak dikirim pemanggil tidak boleh menimpa nilai lama —
+            // jalur kurir misalnya tidak mengirim courier_id sama sekali.
             $attributes = [
-                'courier_id' => $data['courier_id'] ?? null,
-                'tracking_number' => $data['tracking_number'] ?? null,
-                'note' => $data['note'] ?? null,
+                'courier_id' => $data['courier_id'] ?? $shipment->courier_id,
+                'tracking_number' => $data['tracking_number'] ?? $shipment->tracking_number,
+                'note' => $data['note'] ?? $shipment->note,
                 'status' => $status,
             ];
 
             if ($status === Shipment::STATUS_SHIPPED && ! $shipment->shipped_at) {
                 $attributes['shipped_at'] = now();
-            }
-
-            if ($status === Shipment::STATUS_DELIVERED) {
-                $attributes['shipped_at'] = $shipment->shipped_at ?? now();
-                $attributes['delivered_at'] = $shipment->delivered_at ?? now();
             }
 
             $shipment->update($attributes);
@@ -91,9 +131,42 @@ class ShipmentService
                     $status,
                     $data['description'] ?? $this->defaultDescription($shipment),
                     $data['location'] ?? null,
-                    Shipment::SOURCE_SELLER
+                    $source
                 );
             }
+
+            $this->syncOrderStatus($shipment->order);
+
+            return $shipment;
+        });
+    }
+
+    /**
+     * Paket dinyatakan tiba, beserta nama penerima dan bukti fotonya.
+     *
+     * Dipakai oleh dua pihak yang sama-sama tahu paket sudah sampai: petugas
+     * kurir yang menyerahkannya, atau penerima sendiri.
+     */
+    public function markDelivered(Shipment $shipment, array $data, string $source): Shipment
+    {
+        return DB::transaction(function () use ($shipment, $data, $source) {
+            $shipment->update([
+                'status' => Shipment::STATUS_DELIVERED,
+                'shipped_at' => $shipment->shipped_at ?? now(),
+                'delivered_at' => $shipment->delivered_at ?? now(),
+                'receiver_name' => $data['receiver_name'] ?? $shipment->receiver_name,
+                'proof_photo' => $data['proof_photo'] ?? $shipment->proof_photo,
+            ]);
+
+            $pelaku = $source === Shipment::SOURCE_COURIER ? 'Kurir' : 'Penerima';
+
+            $this->recordEvent(
+                $shipment,
+                Shipment::STATUS_DELIVERED,
+                $pelaku.' mencatat paket diterima oleh '.($data['receiver_name'] ?? 'penerima').'.',
+                null,
+                $source
+            );
 
             $this->syncOrderStatus($shipment->order);
 

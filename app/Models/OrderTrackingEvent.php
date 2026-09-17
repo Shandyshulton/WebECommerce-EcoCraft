@@ -31,6 +31,7 @@ class OrderTrackingEvent extends Model
             Shipment::SOURCE_SELLER => 'Pengrajin',
             Shipment::SOURCE_ADMIN => 'Admin EcoCraft',
             Shipment::SOURCE_COURIER => 'Kurir',
+            Shipment::SOURCE_CUSTOMER => 'Penerima',
             default => 'Sistem',
         };
     }

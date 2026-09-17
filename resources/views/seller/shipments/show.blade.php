@@ -53,7 +53,7 @@
     <div class="ship-grid">
         <div class="ship-card">
             <h2>Data pengiriman</h2>
-            <p class="hint">Nomor resi wajib diisi sebelum paket ditandai dikirim.</p>
+            <p class="hint">Ekspedisi pihak ketiga: isi nomor resi saat menyerahkan paket. Kurir Lokal EcoCraft: cukup pilih ekspedisinya, paket masuk daftar tugas kurir.</p>
 
             @if($errors->any())
                 <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -64,21 +64,25 @@
                     <span class="resi-value" id="resiValue">{{ $shipment->tracking_number }}</span>
                     <button type="button" class="btn btn-secondary" id="copyResi"><i class="fas fa-copy"></i> Salin resi</button>
                     @if($trackingUrl)
-                        <a href="{{ $trackingUrl }}" target="_blank" rel="noopener" class="btn btn-secondary">
+                        <a href="{{ $trackingUrl }}" target="_blank" rel="noopener" class="btn btn-secondary" data-resi="{{ $shipment->tracking_number }}" data-track-link>
                             <i class="fas fa-arrow-up-right-from-square"></i> Lacak di {{ $shipment->courier?->name }}
                         </a>
                     @endif
                 </div>
+                @if($trackingUrl)
+                    <p class="hint mt-2 mb-0">Situs ekspedisi tidak menerima nomor resi lewat tautan, jadi resinya otomatis tersalin saat kamu menekan tombol lacak.</p>
+                @endif
             @endif
 
-            <form action="{{ route('seller.shipments.update', $shipment) }}" method="POST">
+            @if($shipment->isAwaitingHandover())
+                <form action="{{ route('seller.shipments.update', $shipment) }}" method="POST">
                 @csrf
                 @method('PUT')
 
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Ekspedisi</label>
-                        <select name="courier_id" class="form-select">
+                        <select name="courier_id" class="form-select" required>
                             <option value="">— Pilih ekspedisi —</option>
                             @foreach($couriers as $courier)
                                 <option value="{{ $courier->id_couriers }}" @selected(old('courier_id', $shipment->courier_id) == $courier->id_couriers)>{{ $courier->name }}</option>
@@ -88,18 +92,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Nomor resi</label>
                         <input name="tracking_number" class="form-control" value="{{ old('tracking_number', $shipment->tracking_number) }}" placeholder="mis. JNE1234567890">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Status paket</label>
-                        <select name="status" class="form-select" required>
-                            @foreach($statuses as $status)
-                                <option value="{{ $status }}" @selected(old('status', $shipment->status) === $status)>{{ $status }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Lokasi (opsional)</label>
-                        <input name="location" class="form-control" value="{{ old('location') }}" placeholder="mis. Sortir Bandung">
+                        <small class="text-muted">Wajib untuk ekspedisi pihak ketiga.</small>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Catatan untuk pembeli (opsional)</label>
@@ -107,9 +100,16 @@
                     </div>
                 </div>
 
-                <button class="btn btn-primary mt-4">Simpan</button>
+                <button class="btn btn-primary mt-4">Serahkan paket</button>
                 <a href="{{ route('seller.shipments.index') }}" class="btn btn-secondary mt-4">Kembali</a>
-            </form>
+                </form>
+            @else
+                <div class="alert alert-info mb-0" style="font-size:12px">
+                    Paket sudah diserahkan. Status dan perjalanannya dikelola
+                    {{ $shipment->courier?->is_local_delivery ? 'petugas kurir' : 'ekspedisi '.($shipment->courier?->name ?? '') }}.
+                </div>
+                <a href="{{ route('seller.shipments.index') }}" class="btn btn-secondary mt-3">Kembali</a>
+            @endif
         </div>
 
         <div>
@@ -123,6 +123,7 @@
                     <li><span>Kota</span><strong>{{ $shipment->order?->shipping_city ?? '—' }}, {{ $shipment->order?->shipping_province ?? '' }}</strong></li>
                     <li><span>Metode kirim</span><strong>{{ $shipment->order?->shipping_method ?? '—' }}</strong></li>
                     <li><span>Pembayaran</span><strong>{{ $shipment->order?->payment_method ?? '—' }}</strong></li>
+                    <li><span>Status bayar</span><strong>{{ $shipment->order?->paymentLabel() ?? '—' }}</strong></li>
                 </ul>
                 @if($shipment->note)
                     <div class="alert alert-info mb-0" style="font-size:12px">{{ $shipment->note }}</div>
@@ -144,11 +145,29 @@
                 </ul>
             </div>
 
+            @if($shipment->isDelivered())
+                <div class="ship-card mb-3">
+                    <h2>Bukti penerimaan</h2>
+                    <p class="hint">Dikonfirmasi oleh penerima.</p>
+                    <ul class="ship-meta">
+                        <li><span>Diterima oleh</span><strong>{{ $shipment->receiver_name ?: '—' }}</strong></li>
+                        <li><span>Waktu</span><strong>{{ $shipment->delivered_at?->translatedFormat('d M Y, H:i') ?? '—' }}</strong></li>
+                    </ul>
+                    @if($shipment->proof_photo)
+                        <a href="{{ asset('storage/'.$shipment->proof_photo) }}" data-lightbox-trigger data-alt="Bukti penerimaan paket">
+                            <img src="{{ asset('storage/'.$shipment->proof_photo) }}" alt="Bukti penerimaan paket" style="width:100%;border-radius:10px;border:1px solid var(--line)">
+                        </a>
+                    @else
+                        <p class="hint mb-0">Penerima tidak melampirkan foto.</p>
+                    @endif
+                </div>
+            @endif
+
             <div class="ship-card mb-3">
                 <h2>Riwayat perjalanan</h2>
                 <p class="hint">Tercatat otomatis saat status berubah.</p>
                 <ul class="timeline">
-                    @forelse($shipment->events as $event)
+                    @forelse($shipment->events->reverse() as $event)
                         <li>
                             <span class="tl-title">{{ $event->status }}</span>
                             <span class="tl-desc">{{ $event->description }}</span>
@@ -165,30 +184,19 @@
             </div>
 
             <div class="ship-card">
-                <h2>Tambah titik perjalanan</h2>
-                <p class="hint">Catat posisi paket, mis. tiba di kota transit.</p>
-                <form action="{{ route('seller.shipments.events.store', $shipment) }}" method="POST">
-                    @csrf
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select" required>
-                                @foreach($statuses as $status)
-                                    <option value="{{ $status }}" @selected($shipment->status === $status)>{{ $status }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Lokasi</label>
-                            <input name="location" class="form-control" placeholder="mis. Hub Jakarta">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Keterangan</label>
-                            <input name="description" class="form-control" required placeholder="mis. Paket tiba di hub transit">
-                        </div>
-                    </div>
-                    <button class="btn btn-primary mt-4"><i class="fas fa-plus"></i> Tambah riwayat</button>
-                </form>
+                @if($shipment->courier?->is_local_delivery)
+                    <h2>Titik perjalanan paket</h2>
+                    <p class="hint mb-0">
+                        Pengiriman ini ditangani Kurir Lokal EcoCraft. Petugas kurirlah yang mencatat posisi paket
+                        dan mengunggah bukti serah terima, karena dialah yang memegang paketnya.
+                    </p>
+                @else
+                    <h2>Perjalanan paket</h2>
+                    <p class="hint mb-0">
+                        Posisi paket dicatat oleh sistem {{ $shipment->courier?->name ?? 'ekspedisi' }}, bukan di sini.
+                        Pembeli dapat memantau perjalanannya lewat nomor resi di atas.
+                    </p>
+                @endif
             </div>
         </div>
     </div>
@@ -207,5 +215,16 @@
             }
         });
     }
+
+    // Situs ekspedisi tidak bisa menerima nomor resi lewat URL.
+    document.querySelectorAll('[data-track-link]').forEach((link) => {
+        link.addEventListener('click', () => {
+            if (link.dataset.resi && navigator.clipboard) {
+                navigator.clipboard.writeText(link.dataset.resi).catch(() => {});
+            }
+        });
+    });
 </script>
+
+@include('partials.image-lightbox')
 @endsection

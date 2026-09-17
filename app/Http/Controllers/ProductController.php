@@ -273,7 +273,9 @@ class ProductController extends Controller
             ->findOrFail($id);
         
         // Mengambil data galeri gambar produk (jika ada)
-        $image_gallery = json_decode($product->image_gallery, true);
+        $image_gallery = is_array($product->image_gallery)
+            ? $product->image_gallery
+            : (json_decode($product->image_gallery ?? '[]', true) ?: []);
 
         // Mengirim data produk ke view
         return view('products.show', [

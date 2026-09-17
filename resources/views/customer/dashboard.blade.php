@@ -7,17 +7,6 @@
 <section class="reference-hero">
     <div class="page-wrap reference-grid">
         <div>
-            <div class="mobile-quick-grid" id="quickGrid" aria-label="Pintasan cepat">
-                <a class="mqg-item" href="{{ route('catalog.index') }}"><span class="mqg-icon"><i class="fa fa-th-large"></i></span><span class="mqg-label">Katalog</span></a>
-                <a class="mqg-item" href="{{ route('login') }}"><span class="mqg-icon"><i class="fa fa-shopping-cart"></i></span><span class="mqg-label">Keranjang</span></a>
-                <a class="mqg-item" href="{{ route('login') }}"><span class="mqg-icon accent"><i class="fa fa-comments"></i></span><span class="mqg-label">Chat Seller</span></a>
-                <a class="mqg-item" href="{{ route('login') }}"><span class="mqg-icon"><i class="fa fa-truck"></i></span><span class="mqg-label">Lacak Pesanan</span></a>
-                <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#stories"><span class="mqg-icon accent"><i class="fa fa-book-open"></i></span><span class="mqg-label">Cerita</span></a>
-                <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#impact"><span class="mqg-icon"><i class="fa fa-leaf"></i></span><span class="mqg-label">Dampak</span></a>
-                <a class="mqg-item is-hidden" href="{{ route('login') }}"><span class="mqg-icon"><i class="fa fa-user"></i></span><span class="mqg-label">Akun</span></a>
-                <a class="mqg-item is-hidden" href="{{ route('seller.register.form') }}"><span class="mqg-icon accent"><i class="fa fa-store"></i></span><span class="mqg-label">Jadi Seller</span></a>
-                <button type="button" class="mqg-more" data-quick-more><i class="fa fa-th"></i> Lihat semua</button>
-            </div>
             <div class="eyebrow">Pintu masuk gaya hidup berkelanjutan</div>
             <h1>Selamat datang di EcoCraft</h1>
             <p class="welcome-note">Gerakan belanja sirkular berkelanjutan</p>
@@ -64,31 +53,16 @@
         </div>
     </div>
 
-    <div class="mobile-quick-grid" id="quickGrid" aria-label="Pintasan cepat">
-        <a class="mqg-item" href="{{ route('catalog.index') }}"><span class="mqg-icon"><i class="fa fa-th-large"></i></span><span class="mqg-label">Katalog</span></a>
-        <a class="mqg-item" href="{{ route('cart.show') }}"><span class="mqg-icon"><i class="fa fa-shopping-cart"></i></span><span class="mqg-label">Keranjang</span></a>
-        <a class="mqg-item" href="{{ route('customer.inquiries.index') }}"><span class="mqg-icon accent"><i class="fa fa-comments"></i></span><span class="mqg-label">Chat Seller</span></a>
-        <a class="mqg-item" href="{{ route('track.track') }}"><span class="mqg-icon"><i class="fa fa-truck"></i></span><span class="mqg-label">Lacak Pesanan</span></a>
-        <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#stories"><span class="mqg-icon accent"><i class="fa fa-book-open"></i></span><span class="mqg-label">Cerita</span></a>
-        <a class="mqg-item is-hidden" href="{{ route('customer.dashboard') }}#impact"><span class="mqg-icon"><i class="fa fa-leaf"></i></span><span class="mqg-label">Dampak</span></a>
-        <a class="mqg-item is-hidden" href="{{ route('customer.profile') }}"><span class="mqg-icon"><i class="fa fa-user"></i></span><span class="mqg-label">Akun</span></a>
-        <a class="mqg-item is-hidden" href="{{ route('customer.addresses.index') }}"><span class="mqg-icon"><i class="fa fa-location-dot"></i></span><span class="mqg-label">Alamat</span></a>
-        <a class="mqg-item is-hidden" href="{{ route('seller.register.form') }}"><span class="mqg-icon accent"><i class="fa fa-store"></i></span><span class="mqg-label">Jadi Seller</span></a>
-        <button type="button" class="mqg-more" data-quick-more><i class="fa fa-th"></i> Lihat semua</button>
-    </div>
     @if($stories->isNotEmpty())
     <section id="stories" class="member-section">
         <div class="member-section-head">
             <div><div class="eyebrow" style="color:var(--accent)">Cerita di balik karya</div><h2>Sorotan komunitas</h2></div>
             <a class="member-section-link" href="{{ route('community.index') }}">Lihat semua <span aria-hidden="true">&rarr;</span></a>
         </div>
-        <div class="community-row-track" id="story-row-member">
+        <div class="community-row-track">
             @foreach($stories as $story)
-                @include('customer.partials.story-card', ['story' => $story, 'hidden' => $loop->index >= 5])
+                @include('customer.partials.story-card', ['story' => $story])
             @endforeach
-            @if($stories->count() > 5)
-                <button type="button" class="story-row-more" data-load-more="story-row-member">Muat lebih banyak<span aria-hidden="true">+</span></button>
-            @endif
         </div>
     </section>
     @endif
@@ -336,33 +310,6 @@ document.querySelectorAll('[data-seller-tab]').forEach(function (tab) {
         });
         document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
-});
-
-// "Muat lebih banyak": tampilkan 5 kartu tersembunyi berikutnya di baris sorotan member
-document.querySelectorAll('[data-load-more]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        var row = document.getElementById(btn.getAttribute('data-load-more'));
-        if (!row) return;
-
-        var hidden = row.querySelectorAll('.community-story-card.is-hidden');
-        var shown = 0;
-        while (shown < 5 && shown < hidden.length) {
-            hidden[shown].classList.remove('is-hidden');
-            shown++;
-        }
-
-        if (row.querySelectorAll('.community-story-card.is-hidden').length === 0) {
-            btn.style.display = 'none';
-        }
-    });
-});
-
-// "Lihat semua" pada pintasan cepat (mobile): tampilkan ikon tersembunyi lalu sembunyikan tombol
-document.querySelector('[data-quick-more]')?.addEventListener('click', function () {
-    document.querySelectorAll('#quickGrid .mqg-item.is-hidden').forEach(function (item) {
-        item.classList.remove('is-hidden');
-    });
-    this.style.display = 'none';
 });
 
 // Stepper quantity pada kartu produk (− / +)

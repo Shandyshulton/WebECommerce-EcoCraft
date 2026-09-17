@@ -19,7 +19,11 @@ use App\Http\Controllers\SellerInquiryController;
 use App\Http\Controllers\WarrantyClaimController;
 use App\Http\Controllers\SellerWarrantyClaimController;
 use App\Http\Controllers\SellerShipmentController;
+use App\Http\Controllers\CourierLoginController;
+use App\Http\Controllers\CourierTaskController;
 use App\Http\Controllers\CustomerAddressController;
+use App\Http\Controllers\CustomerShipmentController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ImpactFactorController;
 use App\Http\Controllers\ImpactCertificateController;
 use App\Http\Controllers\WalletController;
@@ -35,6 +39,11 @@ Route::get('/admin/login', [LoginController::class, 'showAdminLoginForm'])->name
 Route::post('/login', [LoginController::class, 'authenticate'])->name('login.submit');
 Route::post('/seller/login', [LoginController::class, 'authenticateSeller'])->name('seller.login.submit');
 Route::post('/admin/login', [LoginController::class, 'authenticateAdmin'])->name('admin.login.submit');
+
+# Halaman Login Kurir (petugas kurir lokal)
+Route::get('/courier/login', [CourierLoginController::class, 'showLoginForm'])->name('courier.login');
+Route::post('/courier/login', [CourierLoginController::class, 'login'])->name('courier.login.submit');
+Route::post('/courier/logout', [CourierLoginController::class, 'logout'])->name('courier.logout');
 
 Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('logout');
 
@@ -105,11 +114,16 @@ Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::put('/vouchers/{id}', [VoucherController::class, 'update'])->name('admin.vouchers.update');
         Route::delete('/vouchers/{id}', [VoucherController::class, 'destroy'])->name('admin.vouchers.destroy');
         Route::post('/vouchers/{id}/toggle', [VoucherController::class, 'toggle'])->name('admin.vouchers.toggle');
+
+        // Kelola akun petugas kurir
+        Route::get('/couriers', [AdminController::class, 'couriers'])->name('admin.couriers');
+        Route::post('/couriers', [AdminController::class, 'storeCourier'])->name('admin.couriers.store');
+        Route::post('/couriers/{id}/toggle', [AdminController::class, 'toggleCourier'])->name('admin.couriers.toggle');
     });
 });
 
 # Proteksi route seller dan semua resource-nya
-Route::middleware(['auth:seller'])->group(function () {
+Route::middleware(['seller'])->group(function () {
     Route::get('/seller/dashboard', [SellerController::class, 'dashboard'])->name('seller.dashboard');
 
     // Resource product
@@ -122,7 +136,15 @@ Route::middleware(['auth:seller'])->group(function () {
     Route::get('/seller/shipments', [SellerShipmentController::class, 'index'])->name('seller.shipments.index');
     Route::get('/seller/shipments/{shipment}', [SellerShipmentController::class, 'show'])->name('seller.shipments.show');
     Route::put('/seller/shipments/{shipment}', [SellerShipmentController::class, 'update'])->name('seller.shipments.update');
-    Route::post('/seller/shipments/{shipment}/events', [SellerShipmentController::class, 'storeEvent'])->name('seller.shipments.events.store');
+});
+
+# Area petugas kurir lokal
+Route::middleware(['courier'])->prefix('courier')->group(function () {
+    Route::get('/tasks', [CourierTaskController::class, 'index'])->name('courier.tasks.index');
+    Route::get('/tasks/{shipment}', [CourierTaskController::class, 'show'])->name('courier.tasks.show');
+    Route::post('/tasks/{shipment}/claim', [CourierTaskController::class, 'claim'])->name('courier.tasks.claim');
+    Route::put('/tasks/{shipment}', [CourierTaskController::class, 'update'])->name('courier.tasks.update');
+    Route::post('/tasks/{shipment}/events', [CourierTaskController::class, 'storeEvent'])->name('courier.tasks.events.store');
 });
 
 // Katalog dan detail produk dapat dilihat guest tanpa login.
@@ -156,7 +178,7 @@ Route::middleware(['auth:customer'])->group(function () {
 
 });
 
-Route::middleware(['auth:seller'])->group(function () {
+Route::middleware(['seller'])->group(function () {
     Route::get('/seller/dashboard', [SellerController::class, 'dashboard'])->name('seller.dashboard');
     Route::get('/seller/profile', [SellerController::class, 'editProfile'])->name('seller.profile');
     Route::put('/seller/profile', [SellerController::class, 'updateProfile'])->name('seller.profile.update');
@@ -180,12 +202,20 @@ Route::middleware(['auth:customer'])->group(function () {
     Route::delete('/cart/items-selected', [CartController::class, 'destroySelected'])->name('cart.items.destroySelected');
     Route::patch('/cart/items/{product}', [CartController::class, 'update'])->name('cart.items.update');
     Route::delete('/cart/items/{product}', [CartController::class, 'destroy'])->name('cart.items.destroy');
+    Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
 });
 Route::middleware(['auth:customer'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
     Route::post('/checkout/preview', [CheckoutController::class, 'preview'])->name('checkout.preview');
     Route::get('/track-order', [TrackController::class, 'show'])->name('track.track');
+
+    // Konfirmasi penerimaan paket beserta bukti foto
+    Route::post('/customer/shipments/{shipment}/confirm', [CustomerShipmentController::class, 'confirm'])->name('customer.shipments.confirm');
+
+    // Pembayaran: Virtual Account atau QRIS
+    Route::get('/payment/{order}', [PaymentController::class, 'show'])->name('payment.show');
+    Route::post('/payment/{order}/confirm', [PaymentController::class, 'confirm'])->name('payment.confirm');
 
     // Dompet koin sirkular & voucher
     Route::get('/customer/wallet', [WalletController::class, 'index'])->name('customer.wallet');

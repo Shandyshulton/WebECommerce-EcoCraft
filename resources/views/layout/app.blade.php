@@ -11,7 +11,7 @@
 </head>
 <body>
 <div class="admin-shell">
-    <header class="admin-nav-bar" id="adminNav">
+    <header class="admin-nav-bar">
         <div class="admin-nav-inner">
             <a class="brand" href="{{ route('admin.dashboard') }}">
                 <img src="{{ asset('assets/logo/ecocraft-logo.png') }}" alt="EcoCraft">
@@ -26,6 +26,7 @@
                     <a class="{{ request()->routeIs('admin.staff') ? 'active' : '' }}" href="{{ route('admin.staff') }}"><i class="fas fa-users"></i>Staff</a>
                     <a class="{{ request()->routeIs('admin.impact.*') ? 'active' : '' }}" href="{{ route('admin.impact.index') }}"><i class="fas fa-leaf"></i>Faktor Dampak</a>
                     <a class="{{ request()->routeIs('admin.vouchers.*') ? 'active' : '' }}" href="{{ route('admin.vouchers.index') }}"><i class="fas fa-ticket"></i>Voucher</a>
+                    <a class="{{ request()->routeIs('admin.couriers*') ? 'active' : '' }}" href="{{ route('admin.couriers') }}"><i class="fas fa-people-carry-box"></i>Kurir</a>
                 @endif
             </nav>
             <div class="nav-right">
@@ -50,7 +51,6 @@
                     </div>
                 </div>
             </div>
-            <button class="mobile-toggle" id="navToggle" type="button" aria-label="Buka menu"><i class="fas fa-bars"></i></button>
         </div>
     </header>
     <main class="content">
@@ -77,9 +77,6 @@
 
 <script>
     document.getElementById('current-date').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    const navBar=document.getElementById('adminNav'),navToggle=document.getElementById('navToggle');
-    navToggle.addEventListener('click',()=>navBar.classList.toggle('nav-open'));
-    document.querySelectorAll('.admin-nav a').forEach(a=>a.addEventListener('click',()=>navBar.classList.remove('nav-open')));
 
     // ===== Image lightbox dengan zoom in/out + geser =====
     (function(){

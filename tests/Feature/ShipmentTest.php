@@ -9,7 +9,9 @@ use App\Models\Product;
 use App\Models\Seller;
 use App\Models\Shipment;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ShipmentTest extends TestCase
@@ -72,11 +74,19 @@ class ShipmentTest extends TestCase
         ]);
     }
 
-    private function courier(): Courier
+    private function thirdPartyCourier(): Courier
     {
         return Courier::firstOrCreate(
             ['code' => 'qa_courier'],
             ['name' => 'QA Ekspedisi', 'tracking_url' => 'https://example.test/track/{resi}', 'is_active' => true]
+        );
+    }
+
+    private function localCourier(): Courier
+    {
+        return Courier::firstOrCreate(
+            ['code' => 'qa_local_courier'],
+            ['name' => 'QA Kurir Lokal', 'tracking_url' => null, 'is_local_delivery' => true, 'is_active' => true]
         );
     }
 
@@ -100,6 +110,7 @@ class ShipmentTest extends TestCase
             'shipping_postal_code' => '40111',
             'shipping_method' => 'Reguler',
             'payment_method' => 'Transfer Bank',
+            'payment_status' => Order::PAYMENT_PAID,
             'subtotal' => $subtotal,
             'total' => $subtotal,
             'status' => 'Processing',
@@ -170,7 +181,7 @@ class ShipmentTest extends TestCase
 
         $this->actingAs($seller, 'seller')
             ->put(route('seller.shipments.update', $shipment), [
-                'courier_id' => $this->courier()->id_couriers,
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
                 'tracking_number' => 'QA123456789',
                 'status' => Shipment::STATUS_SHIPPED,
             ])
@@ -198,7 +209,7 @@ class ShipmentTest extends TestCase
 
         $this->actingAs($seller, 'seller')
             ->put(route('seller.shipments.update', $shipment), [
-                'courier_id' => $this->courier()->id_couriers,
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
                 'status' => Shipment::STATUS_SHIPPED,
             ])
             ->assertSessionHasErrors('tracking_number');
@@ -206,44 +217,68 @@ class ShipmentTest extends TestCase
         $this->assertSame(Shipment::STATUS_PENDING, $shipment->fresh()->status);
     }
 
-    public function test_order_is_not_marked_delivered_until_every_seller_shipment_arrives(): void
+    public function test_order_is_not_marked_delivered_until_every_seller_shipment_is_confirmed(): void
     {
+        $customer = $this->customer();
         $first = $this->seller();
         $second = $this->seller();
         $order = $this->orderWithItems([
             $this->product($first),
             $this->product($second),
-        ]);
+        ], $customer);
 
         $this->actingAs($first, 'seller')->get(route('seller.shipments.index'))->assertOk();
 
         $firstShipment = Shipment::where('order_id', $order->id_orders)->where('seller_id', $first->id_sellers)->firstOrFail();
-
-        $this->actingAs($first, 'seller')
-            ->put(route('seller.shipments.update', $firstShipment), [
-                'courier_id' => $this->courier()->id_couriers,
-                'tracking_number' => 'QA-SELLER-1',
-                'status' => Shipment::STATUS_DELIVERED,
-            ])
-            ->assertRedirect();
-
-        // Paket pengrajin lain belum bergerak, jadi pesanan belum selesai.
-        $this->assertSame('Shipped', $order->fresh()->status);
-
         $secondShipment = Shipment::where('order_id', $order->id_orders)->where('seller_id', $second->id_sellers)->firstOrFail();
 
-        $this->actingAs($second, 'seller')
-            ->put(route('seller.shipments.update', $secondShipment), [
-                'courier_id' => $this->courier()->id_couriers,
-                'tracking_number' => 'QA-SELLER-2',
-                'status' => Shipment::STATUS_DELIVERED,
-            ])
+        foreach ([[$first, $firstShipment, 'QA-SELLER-1'], [$second, $secondShipment, 'QA-SELLER-2']] as [$seller, $shipment, $resi]) {
+            $this->actingAs($seller, 'seller')
+                ->put(route('seller.shipments.update', $shipment), [
+                    'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                    'tracking_number' => $resi,
+                    'status' => Shipment::STATUS_SHIPPED,
+                ])
+                ->assertRedirect();
+        }
+
+        $this->assertSame('Shipped', $order->fresh()->status);
+
+        // Baru satu paket yang dikonfirmasi tiba, jadi pesanan belum selesai.
+        $this->actingAs($customer, 'customer')
+            ->post(route('customer.shipments.confirm', $firstShipment), ['receiver_name' => 'QA Penerima'])
+            ->assertRedirect();
+
+        $this->assertSame('Shipped', $order->fresh()->status);
+
+        // Paket kedua tiba: pesanan baru menjadi Delivered.
+        $this->actingAs($customer, 'customer')
+            ->post(route('customer.shipments.confirm', $secondShipment), ['receiver_name' => 'QA Penerima'])
             ->assertRedirect();
 
         $this->assertSame('Delivered', $order->fresh()->status);
     }
 
-    public function test_seller_can_append_tracking_checkpoint(): void
+    public function test_seller_marks_local_package_ready_for_pickup(): void
+    {
+        $seller = $this->seller();
+        $order = $this->orderWithItems([$this->product($seller)]);
+        $this->actingAs($seller, 'seller')->get(route('seller.shipments.index'))->assertOk();
+
+        $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
+
+        // Pengrajin hanya menyatakan paket siap; status perjalanan dikelola kurir.
+        $this->actingAs($seller, 'seller')
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->localCourier()->id_couriers,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(Shipment::STATUS_PACKED, $shipment->fresh()->status);
+        $this->assertNull($shipment->fresh()->courier_user_id);
+    }
+
+    public function test_seller_cannot_change_a_shipment_after_handover(): void
     {
         $seller = $this->seller();
         $order = $this->orderWithItems([$this->product($seller)]);
@@ -252,19 +287,132 @@ class ShipmentTest extends TestCase
         $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
 
         $this->actingAs($seller, 'seller')
-            ->post(route('seller.shipments.events.store', $shipment), [
-                'status' => Shipment::STATUS_IN_TRANSIT,
-                'description' => 'Paket tiba di hub transit',
-                'location' => 'Hub Bandung',
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                'tracking_number' => 'QA-HANDOVER-1',
             ])
-            ->assertRedirect(route('seller.shipments.show', $shipment));
+            ->assertRedirect();
+
+        $this->assertSame(Shipment::STATUS_SHIPPED, $shipment->fresh()->status);
+
+        // Setelah diserahkan, pengelolaannya ada di kurir atau ekspedisi.
+        $this->actingAs($seller, 'seller')
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                'tracking_number' => 'QA-DIUBAH-LAGI',
+            ])
+            ->assertSessionHas('error');
+
+        $this->assertSame('QA-HANDOVER-1', $shipment->fresh()->tracking_number);
+
+        // Halaman berubah jadi mode baca saja, tanpa form pengelolaan.
+        $this->actingAs($seller, 'seller')
+            ->get(route('seller.shipments.show', $shipment))
+            ->assertOk()
+            ->assertSee('Paket sudah diserahkan')
+            ->assertDontSee('Serahkan paket');
+    }
+
+    public function test_seller_cannot_ship_an_unpaid_order(): void
+    {
+        $seller = $this->seller();
+        $order = $this->orderWithItems([$this->product($seller)]);
+        $order->update(['payment_status' => Order::PAYMENT_UNPAID]);
+
+        $this->actingAs($seller, 'seller')->get(route('seller.shipments.index'))->assertOk();
+        $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
+
+        $this->actingAs($seller, 'seller')
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                'tracking_number' => 'QA-UNPAID-1',
+            ])
+            ->assertSessionHasErrors('courier_id');
+
+        $this->assertSame(Shipment::STATUS_PENDING, $shipment->fresh()->status);
+    }
+
+    public function test_customer_confirms_receipt_with_proof_photo(): void
+    {
+        Storage::fake('public');
+
+        $customer = $this->customer();
+        $seller = $this->seller();
+        $order = $this->orderWithItems([$this->product($seller)], $customer);
+
+        $this->actingAs($seller, 'seller')->get(route('seller.shipments.index'))->assertOk();
+        $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
+
+        $this->actingAs($seller, 'seller')
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                'tracking_number' => 'QA-CONFIRM-1',
+                'status' => Shipment::STATUS_SHIPPED,
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($customer, 'customer')
+            ->post(route('customer.shipments.confirm', $shipment), [
+                'receiver_name' => 'Ibu Sari',
+                'proof_photo' => UploadedFile::fake()->image('bukti.jpg'),
+            ])
+            ->assertRedirect();
+
+        $shipment->refresh();
+
+        $this->assertSame(Shipment::STATUS_DELIVERED, $shipment->status);
+        $this->assertSame('Ibu Sari', $shipment->receiver_name);
+        $this->assertNotNull($shipment->delivered_at);
+        $this->assertNotNull($shipment->proof_photo);
+        Storage::disk('public')->assertExists($shipment->proof_photo);
+        $this->assertSame('Delivered', $order->fresh()->status);
 
         $this->assertDatabaseHas('order_tracking_events', [
             'shipment_id' => $shipment->id_shipments,
-            'status' => Shipment::STATUS_IN_TRANSIT,
-            'location' => 'Hub Bandung',
-            'source' => Shipment::SOURCE_SELLER,
+            'status' => Shipment::STATUS_DELIVERED,
+            'source' => Shipment::SOURCE_CUSTOMER,
         ]);
+    }
+
+    public function test_customer_cannot_confirm_another_customers_shipment(): void
+    {
+        $owner = $this->customer();
+        $other = $this->customer();
+        $seller = $this->seller();
+        $order = $this->orderWithItems([$this->product($seller)], $owner);
+
+        $this->actingAs($seller, 'seller')->get(route('seller.shipments.index'))->assertOk();
+        $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
+
+        $this->actingAs($seller, 'seller')
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                'tracking_number' => 'QA-OTHER-1',
+                'status' => Shipment::STATUS_SHIPPED,
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($other, 'customer')
+            ->post(route('customer.shipments.confirm', $shipment), ['receiver_name' => 'Bukan Pemilik'])
+            ->assertNotFound();
+
+        $this->assertSame(Shipment::STATUS_SHIPPED, $shipment->fresh()->status);
+    }
+
+    public function test_customer_cannot_confirm_shipment_that_has_not_been_sent(): void
+    {
+        $customer = $this->customer();
+        $seller = $this->seller();
+        $order = $this->orderWithItems([$this->product($seller)], $customer);
+
+        $this->actingAs($seller, 'seller')->get(route('seller.shipments.index'))->assertOk();
+        $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
+
+        $this->actingAs($customer, 'customer')
+            ->post(route('customer.shipments.confirm', $shipment), ['receiver_name' => 'QA Penerima'])
+            ->assertSessionHas('error');
+
+        $this->assertSame(Shipment::STATUS_PENDING, $shipment->fresh()->status);
     }
 
     public function test_seller_cannot_manage_another_sellers_shipment(): void
@@ -298,7 +446,7 @@ class ShipmentTest extends TestCase
 
         $this->actingAs($seller, 'seller')
             ->put(route('seller.shipments.update', $shipment), [
-                'courier_id' => $this->courier()->id_couriers,
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
                 'tracking_number' => 'QA-TRACK-99',
                 'status' => Shipment::STATUS_SHIPPED,
             ])
@@ -310,6 +458,35 @@ class ShipmentTest extends TestCase
             ->assertSee('QA-TRACK-99')
             ->assertSee('QA Ekspedisi')
             ->assertSee('https://example.test/track/QA-TRACK-99', false);
+    }
+
+    public function test_tracking_timeline_shows_the_newest_status_first(): void
+    {
+        $customer = $this->customer();
+        $seller = $this->seller();
+        $order = $this->orderWithItems([$this->product($seller)], $customer);
+
+        $this->actingAs($seller, 'seller')->get(route('seller.shipments.index'))->assertOk();
+        $shipment = Shipment::where('order_id', $order->id_orders)->firstOrFail();
+
+        $this->actingAs($seller, 'seller')
+            ->put(route('seller.shipments.update', $shipment), [
+                'courier_id' => $this->thirdPartyCourier()->id_couriers,
+                'tracking_number' => 'QA-URUT-1',
+            ])
+            ->assertRedirect();
+
+        $html = $this->actingAs($customer, 'customer')
+            ->get(route('track.track'))
+            ->assertOk()
+            ->getContent();
+
+        $terbaru = strpos($html, 'diserahkan ke');
+        $terlama = strpos($html, 'disiapkan oleh pengrajin');
+
+        $this->assertNotFalse($terbaru, 'Peristiwa terbaru tidak ada di timeline.');
+        $this->assertNotFalse($terlama, 'Peristiwa terlama tidak ada di timeline.');
+        $this->assertLessThan($terlama, $terbaru, 'Status terbaru harus tampil di atas status sebelumnya.');
     }
 
     public function test_seller_items_only_include_their_own_products(): void

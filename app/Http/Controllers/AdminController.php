@@ -132,6 +132,59 @@ class AdminController extends Controller
         return back()->with('success', 'Akun admin dihapus.');
     }
 
+    // Super admin: kelola akun petugas kurir
+    public function couriers(Request $request)
+    {
+        $query = \App\Models\CourierUser::with('courier');
+
+        if ($search = trim((string) $request->get('q'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        return view('admin.couriers', [
+            'couriers' => $query->orderByDesc('id_courier_users')->get(),
+            'services' => \App\Models\Courier::where('is_local_delivery', true)->orderBy('name')->get(),
+            'stats' => [
+                'total' => \App\Models\CourierUser::count(),
+                'active' => \App\Models\CourierUser::where('is_active', true)->count(),
+                'inactive' => \App\Models\CourierUser::where('is_active', false)->count(),
+            ],
+        ]);
+    }
+
+    public function storeCourier(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:255', 'unique:courier_users,email'],
+            'phone_number' => ['nullable', 'string', 'max:30'],
+            'courier_id' => ['required', 'integer', 'exists:couriers,id_couriers'],
+            'password' => ['required', 'string', 'min:8'],
+        ]);
+
+        \App\Models\CourierUser::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'phone_number' => $data['phone_number'] ?? null,
+            'courier_id' => $data['courier_id'],
+            'password' => bcrypt($data['password']),
+            'is_active' => true,
+        ]);
+
+        return redirect()->route('admin.couriers')->with('success', 'Akun kurir berhasil dibuat.');
+    }
+
+    public function toggleCourier($id)
+    {
+        $courier = \App\Models\CourierUser::findOrFail($id);
+        $courier->update(['is_active' => ! $courier->is_active]);
+
+        return redirect()->route('admin.couriers')->with('success', 'Status akun kurir diperbarui.');
+    }
+
     // Tampilkan daftar seller berdasarkan status (pending & sudah diproses)
     public function verifySellers(Request $request)
     {

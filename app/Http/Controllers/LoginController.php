@@ -26,10 +26,33 @@ class LoginController extends Controller
         return view('auth.admin-login');
     }
 
+    /**
+     * Login seller — hanya guard seller yang diperiksa.
+     * Sebelumnya method ini menitipkan flag ke authenticate(), yang berarti
+     * form login seller ikut mencoba guard admin lebih dulu.
+     */
     public function authenticateSeller(Request $request)
     {
-        $request->merge(['seller_login' => true, 'seller_login_page' => true]);
-        return $this->authenticate($request);
+        $input = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $seller = Seller::where('email', $input['email'])->first();
+
+        if ($seller && $seller->status !== 'approved') {
+            $message = $seller->status === 'pending'
+                ? 'Akun seller masih menunggu persetujuan admin.'
+                : 'Akun seller belum dapat digunakan. Silakan hubungi admin.';
+
+            return back()->withInput()->withErrors(['email' => $message]);
+        }
+
+        if (Auth::guard('seller')->attempt($input)) {
+            return redirect()->intended(route('seller.dashboard'));
+        }
+
+        return back()->withInput()->withErrors(['email' => 'Email atau password seller salah.']);
     }
 
     public function authenticateAdmin(Request $request)
@@ -67,6 +90,14 @@ class LoginController extends Controller
         return redirect()->route('admin.login')->with('success', 'Akun admin berhasil dibuat.');
     }
 
+    /**
+     * Login customer — hanya guard customer yang diperiksa.
+     *
+     * Sebelumnya route /login ini mencoba guard admin, lalu seller, baru
+     * customer. Akibatnya akun admin dan seller bisa masuk lewat halaman login
+     * customer (dan diarahkan ke dashboard admin/seller). Admin dan seller
+     * punya halamannya sendiri: admin.login dan seller.login.
+     */
     public function authenticate(Request $request)
     {
         $input = $request->validate([
@@ -79,55 +110,18 @@ class LoginController extends Controller
             : optional(Customer::where('phone_number', $input['email'])->first())->email;
 
         if (!$email) {
-            return $this->loginFailure($request, 'Email atau nomor WhatsApp tidak ditemukan.');
+            return $this->loginFailure('Email atau nomor WhatsApp tidak ditemukan.');
         }
 
-        $credentials = ['email' => $email, 'password' => $input['password']];
-
-        // Cek di tabel admin dulu
-        if (Auth::guard('admin')->attempt($credentials)) {
-            return redirect()->intended(route('admin.dashboard'));
-        }
-
-        // Cek di tabel seller dulu
-        $seller = Seller::where('email', $credentials['email'])->first();
-
-        if ($seller && $seller->status !== 'approved') {
-            $message = $seller->status === 'pending'
-                ? 'Akun seller masih menunggu persetujuan admin.'
-                : 'Akun seller belum dapat digunakan. Silakan hubungi admin.';
-
-            return $this->loginFailure($request, $message);
-        }
-
-        if ($seller && $seller->status === 'approved') {
-            if (Auth::guard('seller')->attempt($credentials)) {
-                return redirect()->route('seller.dashboard');
-            }
-            // Jika gagal login seller walau sudah approved, lanjut cek customer
-        }
-
-        // Coba login customer
-        if (Auth::guard('customer')->attempt($credentials)) {
+        if (Auth::guard('customer')->attempt(['email' => $email, 'password' => $input['password']])) {
             return redirect()->intended(route('customer.dashboard'));
         }
 
-        // Jika semua gagal
-        return $this->loginFailure($request, 'Email atau password salah atau akun belum disetujui.');
+        return $this->loginFailure('Email atau password salah.');
     }
 
-    private function loginFailure(Request $request, string $message)
+    private function loginFailure(string $message)
     {
-        if ($request->boolean('seller_login_page')) {
-            return back()->withInput()->withErrors(['email' => $message]);
-        }
-
-        if ($request->boolean('seller_login')) {
-            return redirect()->to(route('customer.dashboard') . '#seller-login')
-                ->withInput()
-                ->withErrors(['email' => $message], 'seller');
-        }
-
         return redirect()->back()->withInput()->withErrors(['email' => $message]);
     }
 
@@ -135,7 +129,7 @@ class LoginController extends Controller
     public function logout(Request $request)
     {
         // Logout dari guard yang aktif
-        $guards = ['admin', 'seller', 'customer'];
+        $guards = ['admin', 'seller', 'customer', 'courier'];
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
                 Auth::guard($guard)->logout();

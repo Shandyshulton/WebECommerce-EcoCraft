@@ -1,5 +1,5 @@
 @php($storyUrl = $story->slug ? route('community.show', $story->slug) : route('community.index'))
-<article class="community-story-card {{ $hidden ? 'is-hidden' : '' }}">
+<article class="community-story-card">
     <a class="community-story-card-link" href="{{ $storyUrl }}">
         <img
             class="community-story-card-image"

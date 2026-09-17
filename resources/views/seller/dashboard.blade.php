@@ -43,16 +43,12 @@
                     </div>
                 </div>
             </div>
-            <button class="mobile-toggle" id="navToggle" type="button" aria-label="Buka menu"><i class="fas fa-bars"></i></button>
         </div>
     </header>
     <main class="content">@if(View::hasSection('breadcrumb'))<nav class="crumbs" aria-label="breadcrumb"><a href="{{ route('seller.dashboard') }}"><i class="fas fa-house"></i></a>@yield('breadcrumb')</nav>@endif @yield('content')</main>
 </div>
 <script>
     document.getElementById('current-date').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    const navBar=document.getElementById('sellerNav'),navToggle=document.getElementById('navToggle');
-    navToggle.addEventListener('click',()=>navBar.classList.toggle('nav-open'));
-    document.querySelectorAll('.seller-nav a').forEach(a=>a.addEventListener('click',()=>navBar.classList.remove('nav-open')));
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

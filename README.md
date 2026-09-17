@@ -20,28 +20,30 @@ EcoCraft menghubungkan pengrajin Nusantara yang mengolah material bekas dengan p
 
 | Lapisan | Teknologi |
 | --- | --- |
-| Bahasa | PHP 8.1+ (diuji pada 8.5.8) |
-| Framework | Laravel 10.50 |
+| Bahasa | PHP 8.2+ (diuji pada 8.5.8) |
+| Framework | Laravel 12.69 |
 | Database | MySQL / MariaDB |
-| Tampilan | Blade, Bootstrap 5.3 (CDN), Font Awesome 6.4 (CDN), EB Garamond + Plus Jakarta Sans |
-| Aset | Laravel Mix 6 (Webpack) |
+| Tampilan | Blade, Bootstrap 5.3, Font Awesome 6.4 (CDN), EB Garamond + Plus Jakarta Sans |
 | Autentikasi | Session guard — 4 guard terpisah |
-| Pengujian | PHPUnit 10 |
+| Pengujian | PHPUnit 11 |
 
 ---
 
 ## Peran pengguna
 
-Aplikasi memakai empat guard terpisah (`config/auth.php`), masing-masing dengan tabel dan alur login sendiri.
+Aplikasi memakai empat guard terpisah (`config/auth.php`); guard `admin` punya dua tingkat peran sehingga muncul dua baris di bawah.
 
 | Guard | Tabel | Akses |
 | --- | --- | --- |
-| `admin` (role `super_admin`) | `admins` | Semua akses admin + kelola staf, faktor dampak material, dan voucher |
+| `admin` (role `super_admin`) | `admins` | Semua akses admin + kelola staf, faktor dampak material, voucher, dan akun kurir |
 | `admin` (role `admin`) | `admins` | Verifikasi pengrajin & produk |
 | `seller` | `sellers` | Produk, pesanan, pengiriman, klaim garansi. **Wajib `status = approved`** — `SellerMiddleware` memaksa logout jika belum |
 | `customer` | `customers` | Katalog, keranjang, checkout, dompet, klaim, alamat, pelacakan |
+| `courier` | `courier_users` | Daftar tugas antar, ambil paket, perbarui status, unggah bukti serah terima |
 
-Login customer bisa memakai **email atau nomor WhatsApp**. Ada form login terpisah untuk seller (`/seller/login`) dan admin (`/admin/login`).
+Login customer bisa memakai **email atau nomor WhatsApp**. Ada form login terpisah untuk seller (`/seller/login`), admin (`/admin/login`), dan kurir (`/courier/login`).
+
+Perhatikan bahwa `couriers` (referensi jasa ekspedisi) dan `courier_users` (orang yang mengantar) adalah dua entitas berbeda — akun login tidak ditumpangkan ke tabel referensi, sehingga satu jasa kurir bisa memiliki banyak petugas.
 
 ---
 
@@ -61,17 +63,31 @@ Login customer bisa memakai **email atau nomor WhatsApp**. Ada form login terpis
 
 ### Belanja & checkout
 - Keranjang berbasis session dengan dukungan "beli langsung"
+- **Pilihan item menentukan checkout.** Checkbox di keranjang bukan sekadar alat hapus: total mengikuti pilihan, hanya item terpilih yang menjadi item pesanan, dan sisa keranjang tetap tersimpan setelah checkout. "Beli langsung" memilih produk itu saja, bukan seluruh isi keranjang
 - Checkout memakai buku alamat tersimpan atau mengisi alamat baru
 - Pilih metode kirim (`Reguler` / `Express` / `Sameday`) dan metode bayar (`COD` / `Transfer Bank` / `QRIS`)
 - Potongan voucher dan koin dihitung dalam satu transaksi database, termasuk penguncian baris (`lockForUpdate`) untuk mencegah perebutan saldo koin
 
+### Pembayaran
+- COD tidak punya langkah pembayaran di muka; Transfer dan QRIS diarahkan ke halaman pembayaran setelah checkout
+- **Transfer Bank** → nomor Virtual Account, dibuat sekali per pesanan lalu disimpan (`orders.virtual_account`) supaya nomornya tidak berubah saat halaman dibuka ulang
+- **QRIS** → kode QR dari payload format EMVCo (tag-length-value + CRC16-CCITT), digambar di sisi klien lewat pustaka `qrcodejs`
+- Tiap payload memuat nomor pesanan sebagai reference label, sehingga dua pesanan bernominal sama tetap menghasilkan QR yang berbeda
+- Status bayar dicatat **terpisah** dari status pengiriman (`orders.payment_status`) dan tampil di halaman lacak maupun panel pengrajin
+- Pesanan yang belum dibayar **tidak bisa berjalan lebih jauh**: pengrajin ditolak saat menandai paket dikirim, dan paketnya tidak muncul di daftar tugas kurir. COD dikecualikan karena dibayar saat diterima
+- **Simulasi:** nomor VA dan payload QR dibuat aplikasi sendiri, dan status "sudah dibayar" berpindah atas pernyataan pembeli — lihat `app/Services/PaymentService.php`
+
 ### Pengiriman & pelacakan
 Satu pesanan bisa memuat produk dari **beberapa pengrajin sekaligus**, sehingga pengiriman dilacak per pasangan (order, seller) — bukan per order.
-- `shipments`: ekspedisi, nomor resi, status, waktu kirim/terima — unik per (order, seller)
-- `order_tracking_events`: riwayat perjalanan paket dengan kolom `source` (`system` / `seller` / `admin` / `courier`)
-- Status pesanan **diagregasi** dari seluruh pengirimannya: `Delivered` hanya bila semua paket tiba, dan status tidak bisa turun kembali ke `Processing` saat sebagian paket sudah berjalan
-- Halaman pelacakan pembeli menampilkan timeline per paket, tombol salin resi, dan tautan ke situs ekspedisi
-- Data ekspedisi (`couriers`) adalah referensi biasa — tanpa akun login. Kolom `tracking_url` mendukung placeholder `{resi}` untuk deep link
+- `shipments`: ekspedisi, nomor resi, status, waktu kirim/terima, nama & foto bukti penerimaan — unik per (order, seller)
+- `order_tracking_events`: riwayat perjalanan paket dengan kolom `source` (`system` / `seller` / `admin` / `courier` / `customer`)
+- Status pesanan **diagregasi** dari seluruh pengirimannya: `Delivered` hanya bila semua paket dikonfirmasi tiba, dan status tidak bisa turun kembali ke `Processing` saat sebagian paket sudah berjalan
+- **Peran pengrajin dipersempit.** Pengrajin hanya memilih ekspedisi dan mengisi nomor resi — statusnya ditentukan sistem: ekspedisi pihak ketiga langsung `Shipped` (menyerahkan paket berarti mulai dikirim), Kurir Lokal langsung `Packed` (siap diambil). Setelah diserahkan, halaman berubah jadi **baca saja**
+- **Kurir hanya punya satu aksi: menyatakan paket sampai.** Mengambil tugas dari daftar "siap diantar" (dikunci agar tidak bentrok) langsung membuat paket berstatus `Shipped` — paket berpindah ke tangan kurir. Setelah itu kurir cukup menekan **"Paket sudah sampai"** dengan nama penerima dan foto bukti, keduanya **wajib**. Titik perjalanan bisa dicatat opsional tanpa mengubah status
+- **Titik perjalanan hanya dicatat kurir**, dan hanya untuk pengiriman yang kita kendalikan (`couriers.is_local_delivery`). Untuk ekspedisi pihak ketiga posisi paket tidak diketahui siapa pun di sini, jadi pembeli diarahkan ke situs ekspedisi — bukan disuguhi timeline tebakan
+- **Dua jalur konfirmasi terima:** kurir menandai `Delivered` dengan bukti foto untuk pengiriman lokal, atau pembeli sendiri menekan "Paket sudah saya terima" untuk ekspedisi pihak ketiga
+- **Timeline dibaca dari yang terbaru.** Riwayat perjalanan di halaman pembeli, pengrajin, dan kurir semuanya menampilkan status terakhir di paling atas, dengan titik penanda aktif di baris pertama. Query-nya tetap urut kronologis; pembalikannya dilakukan saat ditampilkan
+- Data ekspedisi (`couriers`) adalah referensi biasa — tanpa akun login. Kolom `tracking_url` mendukung placeholder `{resi}`, tetapi ekspedisi yang diuji tidak menerima resi lewat URL, jadi nomor resi disalin otomatis saat tombol lacak ditekan
 
 ### Loyalitas: koin sirkular & voucher
 Konfigurasi di `config/rewards.php`.
@@ -109,12 +125,15 @@ Konfigurasi di `config/rewards.php`.
 
 1. Pembeli menjelajah katalog → halaman detail produk (melihat faktor dampak)
 2. Tambah ke keranjang, atau beli langsung
-3. Checkout: pilih alamat, metode kirim, metode bayar, voucher, dan jumlah koin
-4. `CheckoutController::store` dalam **satu transaksi**: buat order (`Processing`), buat item, potong koin, tandai voucher terpakai, beri koin baru, simpan alamat baru bila diminta, dan **buat data pengiriman untuk setiap pengrajin**
-5. Pengrajin membuka *Pengiriman*, memilih ekspedisi dan mengisi nomor resi → status paket `Shipped`
-6. Pembeli memantau di `/track-order`: timeline per paket + tautan ke situs ekspedisi
-7. Setelah pengrajin menambahkan titik perjalanan, status pesanan ikut menyesuaikan
-8. Saat **semua** paket `Delivered`, pesanan menjadi `Delivered` dan voucher reward diberikan tiap kelipatan 5
+3. Di keranjang, pilih produk mana yang mau dibeli — total mengikuti pilihan
+4. Checkout: pilih alamat, metode kirim, metode bayar, voucher, dan jumlah koin
+5. `CheckoutController::store` dalam **satu transaksi**: buat order (`Processing`), buat item dari produk terpilih, potong koin, tandai voucher terpakai, beri koin baru, simpan alamat baru bila diminta, dan **buat data pengiriman untuk setiap pengrajin**
+6. Transfer/QRIS → halaman pembayaran: pembeli menekan **"Saya sudah bayar"**, status bayar menjadi `Paid`. COD melewati langkah ini
+7. Pengrajin membuka *Pengiriman*, memilih ekspedisi, lalu menyerahkan paket. Ekspedisi pihak ketiga: isi nomor resi → status `Shipped`. Kurir Lokal EcoCraft: tanpa resi → status `Packed`, paket masuk daftar tugas kurir
+8. Kurir lokal mengambil tugas — paket otomatis menjadi `Shipped` — lalu mengantar dan menekan **"Paket sudah sampai"** dengan nama penerima dan foto bukti
+9. Pembeli memantau di `/track-order`: status per paket dengan **timeline terbaru di atas**, tombol salin resi, dan tautan ke situs ekspedisi
+10. Paket tiba → dinyatakan kurir (wajib bukti foto) atau oleh pembeli sendiri lewat **"Paket sudah saya terima"**
+11. Saat **semua** paket dinyatakan tiba, pesanan menjadi `Delivered` dan voucher reward diberikan tiap kelipatan 5
 
 ---
 
@@ -127,6 +146,7 @@ Tersedia setelah `php artisan db:seed`.
 | Super admin | `rafly@gmail.com` | `rafly123` |
 | Admin | `admin@ecocraft.test` | `admin123` |
 | Pengrajin | `demo.pengrajin@ecocraft.test` | `demo12345` |
+| Kurir lokal | `kurir@ecocraft.test` | `kurir12345` |
 
 Akun pengrajin demo hanya dibuat bila belum ada pengrajin berstatus `approved`. **Pembeli tidak di-seed** — daftarkan lewat `/register`.
 
@@ -137,9 +157,8 @@ Data contoh lain: 10 material acuan dampak, 8 cerita komunitas, 10 produk, 2 vou
 ## Instalasi
 
 ### Prasyarat
-- PHP 8.1+ dengan ekstensi `pdo_mysql`, `mbstring`, `openssl`
+- PHP 8.2+ dengan ekstensi `pdo_mysql`, `mbstring`, `openssl`
 - Composer
-- Node.js & npm
 - MySQL / MariaDB
 
 ### Langkah
@@ -147,7 +166,6 @@ Data contoh lain: 10 material acuan dampak, 8 cerita komunitas, 10 produk, 2 vou
 ```bash
 # 1. Dependensi
 composer install
-npm install
 
 # 2. Konfigurasi lingkungan
 cp .env.example .env
@@ -173,11 +191,7 @@ php artisan db:seed
 # 4. Tautkan penyimpanan gambar
 php artisan storage:link
 
-# 5. Bangun aset
-npm run dev            # pengembangan
-npm run production     # produksi
-
-# 6. Jalankan
+# 5. Jalankan
 php artisan serve
 ```
 
@@ -191,12 +205,9 @@ Aplikasi tersedia di `http://localhost:8000`.
 php artisan test
 ```
 
-Saat ini **37 test (125 assertion)** dan semuanya lulus, mencakup alamat pengiriman, klaim garansi, pengiriman multi-pengrajin, dan sertifikat dampak.
+Saat ini **91 test (365 assertion)** dan semuanya lulus, mencakup akses per peran, pilihan keranjang & checkout, alamat pengiriman, klaim garansi, pengiriman multi-pengrajin, tugas kurir, pembayaran, dan sertifikat dampak.
 
-Dua catatan penting:
-
-- Test berjalan pada **database MySQL sungguhan**, bukan SQLite in-memory (`DB_CONNECTION` di `phpunit.xml` sengaja dikomentari). Tiap test dibungkus `DatabaseTransactions` agar rollback. Pastikan server database hidup dan sudah dimigrasi sebelum menjalankan test.
-- Pada PHP 8.5 muncul notice *deprecation* dari konektor MySQL Laravel 10 (`PDO::MYSQL_ATTR_SSL_CA`). Ini berasal dari framework, bukan dari kode aplikasi, dan tidak memengaruhi hasil test.
+Catatan: test berjalan pada **database MySQL sungguhan**, bukan SQLite in-memory (`DB_CONNECTION` di `phpunit.xml` sengaja dikomentari). Tiap test dibungkus `DatabaseTransactions` agar rollback. Pastikan server database hidup dan sudah dimigrasi sebelum menjalankan test.
 
 ---
 
@@ -205,19 +216,21 @@ Dua catatan penting:
 ```
 app/
 ├── Http/
-│   ├── Controllers/     # 24 controller, dipisah per peran & domain
-│   └── Middleware/      # AdminMiddleware, SuperAdminMiddleware,
-│                        # CustomerMiddleware, SellerMiddleware
-├── Models/              # 21 model Eloquent
-└── Services/            # RewardService, ShipmentService, ImpactService
+│   ├── Controllers/     # 28 controller, dipisah per peran & domain
+│   └── Middleware/      # AdminMiddleware, SuperAdminMiddleware, SellerMiddleware,
+│                        # CourierMiddleware
+├── Models/              # 20 model Eloquent
+└── Services/            # RewardService, ShipmentService, ImpactService, PaymentService
 database/
-├── migrations/          # 30 migrasi
+├── migrations/          # 33 migrasi
 └── seeders/             # 7 seeder
 resources/views/
 ├── customer/            # Dashboard, katalog, komunitas, dompet, sertifikat
 ├── seller/              # Dashboard, pesanan, pengiriman, klaim
+├── courier/             # Login, daftar tugas, detail tugas
+├── payment/             # Virtual Account, QRIS, tampilan sudah dibayar
 ├── admin/, order/, products/, checkout/, track/
-tests/Feature/           # 5 file test (4 ranah + ExampleTest)
+tests/Feature/           # 9 file test
 ```
 
 ---
@@ -226,10 +239,14 @@ tests/Feature/           # 5 file test (4 ranah + ExampleTest)
 
 Bagian ini ditulis terbuka agar batas antara **yang sudah dibangun** dan **yang dirancang** jelas.
 
-- **Pembayaran tidak diproses.** `orders.payment_method` mencatat pilihan pembeli, tetapi tidak ada integrasi payment gateway dan tidak ada rekonsiliasi pembayaran.
+- **Pembayaran masih simulasi.** Nomor Virtual Account dan payload QRIS dibuat aplikasi sendiri, dan status "sudah dibayar" berpindah atas pernyataan pembeli. Tidak ada payment gateway, verifikasi, maupun rekonsiliasi.
+- **Pengrajin belum bisa melihat rincian pembayaran.** Status bayar tampil, tetapi tidak ada halaman bagi pengrajin untuk menandai pembayaran diterima secara manual.
 - **Ongkos kirim tidak dihitung.** `orders.shipping_method` hanya pilihan layanan; tarif kirim belum dihitung dan tidak masuk ke `orders.total`.
-- **Pelacakan resi diinput manual** oleh pengrajin, bukan ditarik dari API ekspedisi. `couriers.tracking_url` mengarah ke halaman pelacakan resmi ekspedisi. Mekanisme deep link `{resi}` sudah didukung di kode, tetapi polanya belum diisi karena belum dipastikan per ekspedisi.
-- **Belum ada sisi admin untuk pesanan & pengiriman** — keduanya dikelola pengrajin.
+- **Tidak ada tarikan data dari API ekspedisi.** Nomor resi diisi pengrajin dan posisi paket di tengah perjalanan tidak diketahui sistem, jadi pembeli diarahkan ke situs ekspedisi.
+- **Deep link resi tidak bisa dipakai.** Mekanismenya sudah didukung di kode (`couriers.tracking_url` dengan placeholder `{resi}`), tetapi saat diuji langsung ekspedisi besar tidak menerimanya: Anteraja mengabaikan resi di URL (respons byte-identik), SiCepat dan JNE mengembalikan 404. Karena itu nomor resi **disalin otomatis** saat tombol lacak ditekan, sehingga pembeli tinggal menempelkannya di kolom pencarian.
+- **Penugasan kurir masih berbasis klaim.** Petugas mengambil sendiri paket dari daftar "siap diantar" (dikunci agar tidak bentrok), bukan ditugaskan admin berdasarkan rute atau beban kerja.
+- **Titik perjalanan kurir belum berisi koordinat.** Kurir mencatat status, bukan posisi GPS; pelacakan real-time belum ada.
+- **Admin tidak mengelola pesanan maupun pengiriman.** Keduanya ada di sisi pengrajin, dan pengiriman lokal di sisi kurir; admin hanya mengelola akun kurirnya.
 - **Tanya jawab produk hanya customer ↔ seller.** Teks antarmuka menyebut "admin EcoCraft", tetapi sisi admin belum ada.
 - **Klaim garansi berhenti di status.** Persetujuan belum memicu aksi otomatis seperti penggantian barang atau kompensasi voucher.
 - **Notifikasi email belum aktif.** Mail belum dikonfigurasi.

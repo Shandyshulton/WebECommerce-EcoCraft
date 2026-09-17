@@ -58,8 +58,8 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'admin' => \App\Http\Middleware\AdminMiddleware::class,
         'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
-        'customer' => \App\Http\Middleware\CustomerMiddleware::class,
         'seller' => \App\Http\Middleware\SellerMiddleware::class,
+        'courier' => \App\Http\Middleware\CourierMiddleware::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
     ];
 }
