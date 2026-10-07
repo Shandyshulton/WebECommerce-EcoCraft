@@ -23,6 +23,7 @@ class Customer extends Authenticatable
         'address',
         'province',
         'city',
+        'postal_code',
         'password',
         'profile_image',
     ];

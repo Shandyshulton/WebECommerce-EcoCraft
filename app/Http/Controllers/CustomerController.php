@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use App\Models\Product;
 use App\Models\Seller;
 use App\Models\Order;
@@ -241,7 +242,9 @@ class CustomerController extends Controller
     public function showProfileForm()
     {
         $user = Auth::guard('customer')->user();
-        return view('customer.profile', compact('user'));
+        $regions = config('indonesia_regions');
+        $postalCodes = config('indonesia_postal_codes');
+        return view('customer.profile', compact('user', 'regions', 'postalCodes'));
     }
 
     /**
@@ -255,13 +258,34 @@ class CustomerController extends Controller
             abort(403, 'Unauthorized');
         }
 
+        $regions = config('indonesia_regions');
+
         $request->validate([
             'name_customers' => 'required|string|max:100',
             'email' => 'required|email|max:255|unique:customers,email,' . $user->id_customers . ',id_customers',
+            'phone_number' => ['required', 'regex:/^(\+62|62|0)8[1-9][0-9]{6,11}$/'],
+            'address' => 'required|string|max:255',
+            'province' => ['required', 'string', Rule::in(array_keys($regions))],
+            'city' => 'required|string|max:100',
+            'postal_code' => ['required', 'regex:/^[0-9]{5}$/'],
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ], [
+            'phone_number.regex' => 'Nomor WhatsApp harus nomor Indonesia yang valid (hanya angka, contoh: 081234567890).',
+            'postal_code.regex' => 'Kode pos harus 5 digit angka.',
         ]);
 
-        $data = $request->only(['name_customers', 'email']);
+        // Pastikan kota benar-benar milik provinsi yang dipilih.
+        $validCities = $regions[$request->input('province')] ?? [];
+        if (! in_array($request->input('city'), $validCities, true)) {
+            return back()
+                ->withErrors(['city' => 'Kota / kabupaten tidak sesuai dengan provinsi yang dipilih.'])
+                ->withInput();
+        }
+
+        $data = $request->only([
+            'name_customers', 'email', 'phone_number',
+            'address', 'province', 'city', 'postal_code',
+        ]);
 
         // Jika ada foto baru di-upload
         if ($request->hasFile('profile_image')) {

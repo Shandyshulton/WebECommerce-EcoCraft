@@ -235,6 +235,8 @@
                         @endif
                         <input type="text" class="form-control form-control-sm" id="voucherCode" name="voucher_code" value="{{ old('voucher_code') }}" placeholder="Kode voucher">
                         <input type="hidden" name="customer_voucher_id" id="customerVoucherId" value="{{ old('customer_voucher_id') }}">
+                        <button type="button" class="btn btn-outline-brand btn-sm mt-2" id="checkVoucherBtn">Cek voucher</button>
+                        <div id="voucherStatus" class="small mt-1" style="min-height:16px"></div>
                         <small>Masukkan kode voucher atau pilih dari <a href="{{ route('customer.wallet') }}">dompet</a>.</small>
                     </div>
 
@@ -275,6 +277,8 @@
     var coinsInput = document.getElementById('coinsUsed');
     var maxBtn = document.getElementById('useMaxCoins');
     var note = document.getElementById('rewardNote');
+    var checkVoucherBtn = document.getElementById('checkVoucherBtn');
+    var voucherStatus = document.getElementById('voucherStatus');
 
     function rupiah(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 
@@ -333,6 +337,60 @@
     coinsInput.addEventListener('input', schedule);
     if (maxBtn) {
         maxBtn.addEventListener('click', function () { coinsInput.value = coinBalance; refresh(); });
+    }
+
+    // Tombol khusus untuk mengecek keabsahan voucher (valid / tidak dikenal / kedaluwarsa).
+    function setVoucherStatus(message, state) {
+        if (!voucherStatus) return;
+        var colors = { ok: '#1e4b38', error: '#a53c27', loading: '#717e77' };
+        voucherStatus.style.color = colors[state] || '';
+        voucherStatus.textContent = message;
+    }
+
+    function checkVoucher() {
+        var id = voucherIdInput.value ? parseInt(voucherIdInput.value, 10) : null;
+        var code = id ? '' : (codeInput.value || '').trim();
+
+        if (!id && code === '') {
+            setVoucherStatus('Masukkan kode voucher atau pilih dari dompet dulu.', 'error');
+            return;
+        }
+
+        setVoucherStatus('Mengecek voucher…', 'loading');
+        if (checkVoucherBtn) checkVoucherBtn.disabled = true;
+
+        fetch(previewUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            body: JSON.stringify({
+                customer_voucher_id: id,
+                voucher_code: code,
+                coins_used: parseInt(coinsInput.value || '0', 10) || 0
+            })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            render(data);
+            if (data.voucher_error) {
+                setVoucherStatus('✕ ' + data.voucher_error, 'error');
+            } else if (Number(data.voucher_discount) > 0) {
+                setVoucherStatus('✓ Voucher valid — potongan ' + rupiah(data.voucher_discount) + '.', 'ok');
+            } else {
+                setVoucherStatus('✓ Voucher valid, tetapi belum memberi potongan untuk belanja ini.', 'ok');
+            }
+        }).catch(function () {
+            setVoucherStatus('Gagal mengecek voucher. Coba lagi.', 'error');
+        }).finally(function () {
+            if (checkVoucherBtn) checkVoucherBtn.disabled = false;
+        });
+    }
+
+    if (checkVoucherBtn) {
+        checkVoucherBtn.addEventListener('click', checkVoucher);
+    }
+    // Reset status saat kode voucher diubah.
+    if (codeInput) {
+        codeInput.addEventListener('input', function () {
+            if (voucherStatus) voucherStatus.textContent = '';
+        });
     }
 
     if (voucherIdInput.value && codeInput) codeInput.value = '';

@@ -17,6 +17,10 @@
     </style>
     <style>
         .tnc{display:flex;gap:10px;align-items:flex-start;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.55;cursor:pointer}
+        .phone-field{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+        .phone-field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(30,75,56,.12)}
+        .phone-prefix{display:inline-flex;align-items:center;padding:0 11px;background:#eceae4;color:var(--ink);font:700 13px 'Plus Jakarta Sans';border-right:1px solid var(--line);white-space:nowrap}
+        .phone-field input{border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important}
         .tnc input{flex:0 0 auto;width:16px;height:16px;margin-top:1px;accent-color:var(--brand);cursor:pointer}
         .tnc a{color:var(--brand);font-weight:700;text-decoration:underline}
         .btn:disabled{opacity:.55;pointer-events:none}
@@ -52,11 +56,21 @@
             <div class="form-grid">
                 <div class="field"><label for="name_customers">Nama lengkap</label><input id="name_customers" name="name_customers" value="{{ old('name_customers') }}" autocomplete="name" placeholder="Nama kamu" required>@error('name_customers')<div class="error">{{ $message }}</div>@enderror</div>
                 <div class="field"><label for="email">Email aktif</label><input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" placeholder="nama@email.com" required>@error('email')<div class="error">{{ $message }}</div>@enderror</div>
-                <div class="field"><label for="phone_number">Nomor WhatsApp</label><input id="phone_number" name="phone_number" value="{{ old('phone_number') }}" autocomplete="tel" placeholder="08xxxxxxxxxx" required>@error('phone_number')<div class="error">{{ $message }}</div>@enderror</div>
+                <div class="field"><label for="phone_display">Nomor WhatsApp</label>
+                    @php($phoneLocal = preg_replace('/^(\+?62|0)/', '', old('phone_number', '')))
+                    <div class="phone-field">
+                        <span class="phone-prefix">+62</span>
+                        <input id="phone_display" type="tel" value="{{ $phoneLocal }}" autocomplete="tel" inputmode="numeric" maxlength="13" placeholder="81234567890" required>
+                    </div>
+                    <input type="hidden" id="phone_number" name="phone_number" value="{{ old('phone_number') }}">
+                    @error('phone_number')<div class="error">{{ $message }}</div>@enderror
+                    <div class="helper">Tanpa angka 0 di depan. Contoh: 81234567890</div>
+                </div>
                 <div class="field"><label for="dob">Tanggal lahir</label><input id="dob" type="date" name="dob" value="{{ old('dob') }}" required>@error('dob')<div class="error">{{ $message }}</div>@enderror</div>
                 <div class="field"><label for="gender">Jenis kelamin</label><select id="gender" name="gender" required><option value="">Pilih jenis kelamin</option><option value="male" @selected(old('gender') === 'male')>Laki-laki</option><option value="female" @selected(old('gender') === 'female')>Perempuan</option></select>@error('gender')<div class="error">{{ $message }}</div>@enderror</div>
-                <div class="field"><label for="province">Provinsi</label><input id="province" name="province" value="{{ old('province') }}" placeholder="Contoh: Jawa Barat" required>@error('province')<div class="error">{{ $message }}</div>@enderror</div>
-                <div class="field"><label for="city">Kota</label><input id="city" name="city" value="{{ old('city') }}" placeholder="Contoh: Bandung" required>@error('city')<div class="error">{{ $message }}</div>@enderror</div>
+                <div class="field"><label for="province">Provinsi</label><select id="province" name="province" required><option value="">Pilih provinsi</option>@foreach(array_keys($regions ?? []) as $prov)<option value="{{ $prov }}" @selected(old('province') === $prov)>{{ $prov }}</option>@endforeach</select>@error('province')<div class="error">{{ $message }}</div>@enderror</div>
+                <div class="field"><label for="city">Kota / Kabupaten</label><select id="city" name="city" required><option value="">Pilih provinsi dulu</option></select>@error('city')<div class="error">{{ $message }}</div>@enderror</div>
+                <div class="field"><label for="postal_code">Kode pos</label><input id="postal_code" name="postal_code" value="{{ old('postal_code') }}" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="40123" required>@error('postal_code')<div class="error">{{ $message }}</div>@enderror</div>
                 <div class="field full"><label for="address">Alamat lengkap</label><input id="address" name="address" value="{{ old('address') }}" autocomplete="street-address" placeholder="Jalan, nomor rumah, kecamatan" required>@error('address')<div class="error">{{ $message }}</div>@enderror</div>
                 <div class="field"><label for="password">Kata sandi</label><div class="password-wrap"><input id="password" type="password" name="password" autocomplete="new-password" placeholder="Minimal 8 karakter" required><button class="toggle-password" type="button" onclick="togglePassword('password',this)">Lihat</button></div>@error('password')<div class="error">{{ $message }}</div>@enderror</div>
                 <div class="field"><label for="password_confirmation">Konfirmasi kata sandi</label><div class="password-wrap"><input id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" placeholder="Ulangi kata sandi" required><button class="toggle-password" type="button" onclick="togglePassword('password_confirmation',this)">Lihat</button></div></div>
@@ -108,6 +122,81 @@
 </div>
 @endforeach
 <script>function togglePassword(id,button){const input=document.getElementById(id);const visible=input.type==='text';input.type=visible?'password':'text';button.textContent=visible?'Lihat':'Sembunyikan';}</script>
+<script>
+(function () {
+    var REGIONS = @json($regions ?? [], JSON_UNESCAPED_UNICODE);
+    var POSTAL = @json($postalCodes ?? [], JSON_UNESCAPED_UNICODE);
+    var oldCity = @json(old('city'));
+
+    var provinceSelect = document.getElementById('province');
+    var citySelect = document.getElementById('city');
+    var postalInput = document.getElementById('postal_code');
+
+    function fillPostal() {
+        if (!postalInput) return;
+        var province = provinceSelect.value;
+        var city = citySelect.value;
+        var code = (POSTAL[province] || {})[city];
+        if (code) postalInput.value = code;
+    }
+
+    function populateCities(selectedCity) {
+        var province = provinceSelect.value;
+        var cities = REGIONS[province] || [];
+        citySelect.innerHTML = '';
+
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = province ? 'Pilih kota / kabupaten' : 'Pilih provinsi dulu';
+        citySelect.appendChild(placeholder);
+
+        cities.forEach(function (city) {
+            var opt = document.createElement('option');
+            opt.value = city;
+            opt.textContent = city;
+            if (selectedCity && selectedCity === city) opt.selected = true;
+            citySelect.appendChild(opt);
+        });
+    }
+
+    if (provinceSelect && citySelect) {
+        provinceSelect.addEventListener('change', function () { populateCities(null); });
+        citySelect.addEventListener('change', fillPostal);
+        // Pertahankan pilihan lama saat validasi gagal.
+        if (provinceSelect.value) populateCities(oldCity);
+    }
+
+    // Nomor WhatsApp & kode pos: hanya angka yang bisa diketik.
+    function digitsOnly(el) {
+        if (!el) return;
+        el.addEventListener('input', function () {
+            el.value = el.value.replace(/[^0-9]/g, '');
+        });
+        el.addEventListener('keypress', function (e) {
+            if (e.key.length === 1 && !/[0-9]/.test(e.key)) e.preventDefault();
+        });
+    }
+
+    // Field telepon dengan prefix +62: user mengetik tanpa 0,
+    // nilai yang dikirim disimpan sebagai 0 + angka (format konsisten dgn data lama).
+    var phoneDisplay = document.getElementById('phone_display');
+    var phoneHidden = document.getElementById('phone_number');
+    function syncPhone() {
+        if (!phoneDisplay || !phoneHidden) return;
+        var local = phoneDisplay.value.replace(/[^0-9]/g, '').replace(/^0+/, '');
+        phoneDisplay.value = local;
+        phoneHidden.value = local ? '0' + local : '';
+    }
+    if (phoneDisplay) {
+        digitsOnly(phoneDisplay);
+        phoneDisplay.addEventListener('input', syncPhone);
+        var phoneForm = phoneDisplay.closest('form');
+        if (phoneForm) phoneForm.addEventListener('submit', syncPhone);
+        syncPhone();
+    }
+    digitsOnly(document.getElementById('postal_code'));
+})();
+</script>
 <script>
 (function () {
     var checkbox = document.getElementById('acceptTerms');
